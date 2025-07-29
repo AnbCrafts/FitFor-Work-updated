@@ -63,7 +63,7 @@ app.use("/api/user", UserRouter);
 app.use("/api/notification", notificationRouter);
 app.use("/api/applicant", SeekerRouter);
 app.use("/api/authority", AuthorityRouter);
-app.use("/api/job", JobRouter);
+app.use("/api/job", JobRouter); 
 app.use("/api/admin", AdminRoutes);
 app.use("/api/job-applicant", ApplicantRouter);
 app.use("/api/employee", EmployeeRouter);

@@ -1,6 +1,6 @@
 import Admin from "../Models/Admin.Models.js";
 import User from "../Models/User.Models.js";
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { ADMIN_PERMISSIONS } from "../Constants/Constant.js";
 import { generateToken } from "../Utils/JsonWebToken.Utils.js";
 import Notification from "../Models/Notification.Models.js";
