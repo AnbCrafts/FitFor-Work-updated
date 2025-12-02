@@ -1,60 +1,86 @@
-import React from 'react'
-import Logo from './Logo'
- 
+import React from "react";
+import Logo from "./Logo";
+import { Mail, Phone, MapPin, Globe, Facebook, Instagram, Youtube } from "lucide-react";
+
 const Footer = () => {
-  
   return (
-    <footer className="bg-[#0f0c29] text-white py-10 px-5 border-t border-indigo-900 mt-10">
-      
-  <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+    <footer className="bg-purple-800 text-gray-200 pt-16 pb-12  border-t border-purple-900/40">
 
-    {/* Logo and Description */}
-    <div>
-      <Logo path={'/'} exit={true} /> 
-      <p className="text-md text-gray-400 mt-5">
-        Empowering job seekers and recruiters with AI-enhanced job matching and smart hiring solutions.
-      </p>
-    </div>
+      {/* Container */}
+      <div className="w-[90%] mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
 
-    {/* Quick Links */}
-    <div>
-      <h2 className="text-2xl text-indigo-300 mb-3">Quick Links 🔗</h2>
-      <ul className="text-md space-y-2 text-gray-300">
-        <li><a href="/" className="hover:text-pink-400 transition">🏠 Home</a></li>
-        <li><a href="/jobs" className="hover:text-pink-400 transition">💼 Jobs</a></li>
-        <li><a href="/form" className="hover:text-pink-400 transition">📝 Fill Form</a></li>
-        <li><a href="/contact" className="hover:text-pink-400 transition">📬 Contact Us</a></li>
-      </ul>
-    </div>
+        {/* Logo + Desc */}
+        <div>
+          <Logo path="/" />
+          <p className="text-sm text-gray-300 mt-4 leading-relaxed">
+            FitForWork connects job seekers and employers through smart matching,
+            real-time analytics, and a smooth, modern experience.
+          </p>
+        </div>
 
-    {/* Contact Info */}
-    <div>
-      <h2 className="text-2xl text-indigo-300 mb-3">Contact 📞</h2>
-      <p className="text-md text-gray-300 mb-1">📧 support@fitforwork.com</p>
-      <p className="text-md text-gray-300 mb-1">📍 Dhanbad, Jharkhand, India</p>
-      <p className="text-md text-gray-300">📱 +91 98765 43210</p>
-    </div>
+        {/* Quick Links */}
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Quick Links</h3>
+          <ul className="space-y-2 text-sm">
+            <li>
+              <a href="/" className="hover:text-white transition text-gray-300">
+                Home
+              </a>
+            </li>
+            <li>
+              <a href="/jobs" className="hover:text-white transition text-gray-300">
+                Find Jobs
+              </a>
+            </li>
+            <li>
+              <a href="/post-job" className="hover:text-white transition text-gray-300">
+                Post a Job
+              </a>
+            </li>
+            <li>
+              <a href="/contact" className="hover:text-white transition text-gray-300">
+                Contact Us
+              </a>
+            </li>
+          </ul>
+        </div>
 
-    {/* Socials */}
-    <div>
-      <h2 className="text-2xl text-indigo-300 mb-3">Follow Us 🌐</h2>
-      <div className="flex space-x-4 text-2xl text-gray-400">
-        <a href="#" className="hover:text-pink-400 transition">🌍</a>
-        <a href="#" className="hover:text-pink-400 transition">🐦</a>
-        <a href="#" className="hover:text-pink-400 transition">📘</a>
-        <a href="#" className="hover:text-pink-400 transition">📸</a>
+        {/* Contact */}
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Contact</h3>
+          <div className="space-y-3 text-sm">
+            <p className="flex items-center gap-2">
+              <Mail size={16} className="text-purple-200" /> support@fitforwork.com
+            </p>
+            <p className="flex items-center gap-2">
+              <MapPin size={16} className="text-purple-200" /> Dhanbad, Jharkhand, India
+            </p>
+            <p className="flex items-center gap-2">
+              <Phone size={16} className="text-purple-200" /> +91 98765 43210
+            </p>
+          </div>
+        </div>
+
+        {/* Socials */}
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Follow Us</h3>
+          <div className="flex items-center gap-4 text-purple-200">
+            <a href="#" className="hover:text-white transition"><Globe size={20} /></a>
+            <a href="#" className="hover:text-white transition"><Instagram size={20} /></a>
+            <a href="#" className="hover:text-white transition"><Facebook size={20} /></a>
+            <a href="#" className="hover:text-white transition"><Youtube size={20} /></a>
+          </div>
+        </div>
+
       </div>
-    </div>
 
-  </div>
+      {/* Bottom */}
+      <div className="w-[90%] mx-auto text-center text-xs text-gray-300 mt-12 border-t border-white/10 pt-5">
+        © {new Date().getFullYear()} FitForWork · All rights reserved.
+      </div>
 
-  {/* Bottom */}
-  <div className="text-center text-md text-gray-500 mt-10 border-t border-[#ffffff1a] pt-4">
-    © {new Date().getFullYear()} FitForWork. All rights reserved. ❤️ Made with passion.
-  </div>
-</footer>
+    </footer>
+  );
+};
 
-  )
-}
-
-export default Footer
+export default Footer;

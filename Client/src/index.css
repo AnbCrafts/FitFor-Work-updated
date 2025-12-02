@@ -1,220 +1,209 @@
 @import "tailwindcss";
-body {
-  background: radial-gradient(circle at 20% 20%, #00f0ff22, transparent 40%),
-              radial-gradient(circle at 80% 80%, #5b00ff22, transparent 40%),
-              linear-gradient(135deg, #0f0c29, #302b63, #151527);
-  background-size: cover;
-  background-repeat: no-repeat;
-  min-height: 100vh;
-  color: white;
-}
 
 
 
-.bg {
-  background:
-    url('./assets/body3.jpg') no-repeat center center / cover,
-    radial-gradient(circle at 20% 20%, #00f0ff22, transparent 40%),
-    radial-gradient(circle at 80% 80%, #5b00ff22, transparent 40%),
-    linear-gradient(135deg, #0f0c29, #211e44, #151527);
-  background-repeat: no-repeat;
-  background-size: cover;
-  min-height: 100vh;
-  color: white;
-}
+
+
 .noScroll::-webkit-scrollbar{
   display: none;
   scroll-behavior: smooth;
 
+}/* ===============================
+   FitForWork Global Styles
+   Green + Coral + White Theme
+   JobHunt Layout Structure
+================================*/
+
+:root {
+  --green: #22C55E;
+  --green-dark: #16A34A;
+
+  --coral: #FB7185;
+  --coral-dark: #F43F5E;
+
+  --text-dark: #111827;
+  --text-muted: #6B7280;
+
+  --bg-white: #ffffff;
+  --bg-light: #F3F4F6;
+
+  --border-color: #E5E7EB;
+
+  --radius: 12px;
+  --transition: 0.25s ease;
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
-.fade-in {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+/* GLOBAL RESET */
+/* * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+} */
+
+body {
+  background: var(--bg-white);
+  color: var(--text-dark);
+  font-family: "Inter", "Poppins", sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
 }
 
-.fade-in.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-input::placeholder{
-  color: rgba(128, 128, 128, 0.421);
+/* ---------------------------------
+   HEADINGS + PARAGRAPHS
+----------------------------------*/
+
+.heading-main {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  line-height: 1.2;
 }
 
-.custom-input {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  border: none;
-  outline: none;
-  width: 100%;
+.heading-main span {
+  color: var(--green);
+}
+
+.para-main {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  max-width: 650px;
+}
+
+/* ---------------------------------
+   BUTTONS
+----------------------------------*/
+
+.btn {
+  padding: 14px 28px;
+  border-radius: var(--radius);
   font-size: 1rem;
-  caret-color: white;
-}
-
-.custom-input::placeholder {
-  color: #9ca3af; /* Tailwind's gray-400 */
-}
-
-.custom-input:focus {
-  outline: 2px solid #FF6B6B; /* coral-500 */
-}
-
-.cover-letter-section {
-  margin-top: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.generate-section {
-  text-align: center;
-}
-
-.generate-button {
-  background-color: #FF6B6B;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.generate-button:disabled {
-  background-color: #e26a6a;
-  cursor: not-allowed;
-}
-
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 3px solid white;
-  border-top: 3px solid transparent;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.output-section {
-  background-color: #1e1e2f;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  color: white;
-}
-
-.output-box {
-  background-color: #2b2b3d;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  max-height: 400px;
-  overflow-y: auto;
-  margin-bottom: 1rem;
-  white-space: pre-wrap;
-}
-
-.manual-edit {
-  width: 100%;
-  height: 200px;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  background-color: #2b2b3d;
-  color: white;
+  transition: var(--transition);
   border: none;
-  resize: vertical;
 }
 
-.output-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.output-actions button {
-  background-color: #3a3a4f;
-  color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.output-actions button:hover {
-  background-color: #4b4b6a;
-}
-.extra-sections-container {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  padding: 1.5rem;
-  background-color: #0c0c3a;
-  color: white;
-  border-radius: 1rem;
-}
-
-.tips-panel h3 {
-  color: #FF6B6B; /* coral */
-  margin-bottom: 0.75rem;
-  font-size: 1.25rem;
-}
-
-.tips-panel ul {
-  list-style: none;
-  padding-left: 0;
-}
-
-.tips-panel li {
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
-}
-
-.success-messages .message {
-  background-color: #1f1f55;
-  border-left: 4px solid #FF6B6B;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 0.5rem;
-  font-size: 0.95rem;
-}
-
-.sent {
-  background: linear-gradient(to bottom right, #6366f1, #8b5cf6); /* Indigo to Purple */
-  color: white;
-  border-radius: 1rem;
-  padding: 0.5rem 1rem;
-  max-width: 80%;
-  align-self: flex-end;
-  font-size: 0.875rem;
-}
-
-.received {
-  background: rgb(238, 96, 119);
+/* Primary Button (Green) */
+.btn-primary {
+  background: var(--green);
   color: #fff;
-  border-radius: 1rem;
-  padding: 0.5rem 1rem;
-  max-width: 80%;
-  align-self: flex-start;
-  font-size: 0.875rem;
+  box-shadow: var(--shadow-soft);
 }
 
+.btn-primary:hover {
+  background: var(--green-dark);
+  transform: translateY(-2px);
+}
 
+/* Coral Button */
+.btn-coral {
+  background: var(--coral);
+  color: #fff;
+}
 
+.btn-coral:hover {
+  background: var(--coral-dark);
+  transform: translateY(-2px);
+}
 
-/* 
+/* Outline Button */
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--green);
+  color: var(--green);
+}
 
- 
-        
+.btn-outline:hover {
+  background: var(--green);
+  color: #fff;
+}
 
+/* ---------------------------------
+   INPUTS
+----------------------------------*/
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 1rem;
+  transition: var(--transition);
+}
 
-*/
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+/* ---------------------------------
+   CATEGORY PILLS
+----------------------------------*/
+.pill {
+  padding: 10px 20px;
+  border-radius: 30px;
+  background: var(--bg-light);
+  border: 1px solid var(--border-color);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.pill:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: #fff;
+}
+
+/* ---------------------------------
+   CARD STYLE (JobHunt Layout)
+----------------------------------*/
+.card {
+  background: #fff;
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+/* ---------------------------------
+   SECTION SPACING
+----------------------------------*/
+.section {
+  padding: 80px 0;
+}
+
+.section-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.section-sub {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  max-width: 600px;
+}
+
+/* ---------------------------------
+   FOOTER
+----------------------------------*/
+footer {
+  
+  padding: 60px 0;
+  
+}
+
+.polygon{
+  clip-path: circle(50% at 50% 50%);
+}

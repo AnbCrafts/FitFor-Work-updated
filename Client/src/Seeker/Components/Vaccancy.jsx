@@ -1,24 +1,41 @@
-import React from 'react';
+import React from "react";
 
-const Vaccancy = ({ vacancies }) => {
+const Vacancy = ({ vacancies }) => {
   return (
-    <div className="w-[400px] min-h-[300px] py-5 bg-[#1a1a40] rounded-xl p-5 text-white shadow-xl hover:shadow-[#00ffff55] transition-transform hover:scale-105">
-      <div className="flex items-center gap-5 flex-col flex-wrap justify-between mb-4 border border-[#ff000063] py-5 rounded-lg">
-        <h2 className="text-3xl font-semibold">{vacancies.icon} {vacancies.role}</h2>
-        <span className="text-sm font-semibold px-3 py-1 bg-indigo-700 rounded-full">{vacancies.category}</span>
+    <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 shadow-md p-6 hover:shadow-lg transition-all duration-300">
+      
+      {/* Top */}
+      <div className="flex flex-col items-center text-center gap-3">
+        <div className="text-purple-600 text-4xl">
+          {vacancies.icon}
+        </div>
+
+        <h2 className="text-xl font-semibold text-gray-800">
+          {vacancies.role}
+        </h2>
+
+        <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
+          {vacancies.category}
+        </span>
       </div>
 
-      <div className='mt-4 py-5 px-2 border border-[#0000ff66] rounded-lg'>
-        
-      <p className="mb-2 ">🏢 <strong>Company:</strong> {vacancies.company}</p>
-      <p className="mb-2">📄 <strong>Vacancies:</strong> {vacancies.vacancies}</p>
-      <button className="mt-8 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded text-white">
-        View Details
-      </button>
+      {/* Details Section */}
+      <div className="mt-5 p-4 rounded-xl border border-purple-200 bg-purple-50">
+        <p className="text-gray-700 text-sm mb-2">
+          <span className="font-semibold">🏢 Company:</span> {vacancies.company}
+        </p>
+
+        <p className="text-gray-700 text-sm mb-4">
+          <span className="font-semibold">📄 Vacancies:</span> {vacancies.vacancies}
+        </p>
+
+        <button className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition">
+          View Details
+        </button>
       </div>
 
     </div>
   );
 };
 
-export default Vaccancy;
+export default Vacancy;

@@ -1,171 +1,152 @@
-import React, { useContext, useEffect, useState } from 'react'
-import JobCard from '../Components/JobCard'
-import Filters from '../Components/Filters'
-import ApplySteps from '../Components/ApplySteps'
-import Bottom from '../Components/Bottom'
-import { WorkContext } from '../../ContextAPI/WorkContext'
-import PageNav from '../../Global/Components/PageNav'
-import { Link, useParams } from 'react-router-dom'
- 
+// Jobs.jsx — Premium FitForWork Layout (Improved)
+import React, { useContext, useEffect, useState } from "react";
+import JobCard from "../Components/JobCard";
+import Filters from "../Components/Filters";
+import ApplySteps from "../Components/ApplySteps";
+import Bottom from "../Components/Bottom";
+import PageNav from "../../Global/Components/PageNav";
+import { WorkContext } from "../../ContextAPI/WorkContext";
+import { Link, useParams } from "react-router-dom";
+
 const Jobs = () => {
-  const {getUserIdByToken,globalId,getAllJobsFromDB,allJobs,getAllRequirementsForJob,requirements,getSeekerDataById,seekerData} = useContext(WorkContext);
-  const {hash} =useParams();
-  useEffect(()=>{
-    getUserIdByToken();
-  },[hash]);
+  const {
+    getUserIdByToken,
+    globalId,
+    getAllJobsFromDB,
+    allJobs = [],
+    getAllRequirementsForJob,
+    requirements = {},
+    getSeekerDataById,
+  } = useContext(WorkContext);
 
-  useEffect(()=>{
-    getSeekerDataById(globalId)
-  },[globalId]);
+  const { hash } = useParams();
 
-  useEffect(()=>{
+  // Fetch user + requirements + jobs
+  useEffect(() => {
+    const token = localStorage.getItem("userToken");
+    if (token && hash) getUserIdByToken(token);
+  }, [hash]);
+
+  useEffect(() => {
+    if (globalId) getSeekerDataById(globalId);
+  }, [globalId]);
+
+  useEffect(() => {
     getAllJobsFromDB();
-  },[])
-
- 
-
-  useEffect(()=>{
     getAllRequirementsForJob();
-  },[])
+  }, []);
 
-
-
-
+  // Pagination
   const [currentJobPage, setCurrentJobPage] = useState(1);
-    const jobsPerPage = 8;
-    const indexOfLastJob = currentJobPage * jobsPerPage;
-    const indexOfFirstJob = indexOfLastJob - jobsPerPage;
-    const currentJobs = allJobs?.slice(
-      indexOfFirstJob,
-      indexOfLastJob
-    );
-    const totalJobPages = Math.ceil(
-      allJobs?.length / jobsPerPage
-    );
+  const jobsPerPage = 8;
+  const indexOfLastJob = currentJobPage * jobsPerPage;
+  const currentJobs = allJobs.slice(indexOfLastJob - jobsPerPage, indexOfLastJob);
+  const totalJobPages = Math.max(1, Math.ceil(allJobs.length / jobsPerPage));
 
-    const [showApplicantPopup, setShowApplicantPopup] = useState(false);
-
-// useEffect(() => {
-//   let timer;
-//   if (seekerData === null ) {
-//     timer = setTimeout(() => {
-//       setShowApplicantPopup(true);
-//     }, 5000); 
-//   }
-
-//   return () => clearTimeout(timer);
-// }, [seekerData]);
-
-const handleCloseApplicantPopup = () => {
-  setShowApplicantPopup(false);
-};
-
-  
-    
-
+  // Mobile filters drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1350px] mx-auto px-4 py-8">
 
-    <>
-     {showApplicantPopup && (
-  <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center h-[100vh] ">
-    <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-6 rounded-lg shadow-lg w-[90%] max-w-md relative">
-      <div className="flex items-start gap-3">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6 text-yellow-600 mt-1"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 16h-1v-4h-1m1-4h.01M12 20.5a8.5 8.5 0 100-17 8.5 8.5 0 000 17z"
-          />
-        </svg>
-        <div>
-          <h2 className="text-lg font-bold">No Job Applications Found</h2>
-          <p className="text-sm mt-1">
-            You haven’t applied for any jobs yet. Start exploring and applying to jobs to kickstart your career!
-          </p>
+        {/* Mobile Filters Toggle */}
+        <div className="lg:hidden flex justify-between items-center mb-5">
+          <h2 className="text-xl font-semibold text-gray-900">Job Listings</h2>
+          <button
+            onClick={() => setDrawerOpen(!drawerOpen)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-md"
+          >
+            {drawerOpen ? "Close Filters" : "Filters"}
+          </button>
         </div>
-      </div>
 
-      <div className="flex justify-end gap-3 mt-6">
-        <Link
-          to={`/auth/seeker/${hash}/enroll`}
-          className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-4 py-2 rounded-md shadow"
-        >
-          Apply Now
-        </Link>
-        <button
-          onClick={handleCloseApplicantPopup}
-          className="bg-gray-300 hover:bg-gray-400 text-black font-semibold px-4 py-2 rounded-md"
-        >
-          Cancel
-        </button>
+        {/* GRID */}
+        <div className="grid grid-cols-12 gap-8">
+
+          {/* LEFT — FILTERS */}
+          <aside
+            className={`col-span-12 lg:col-span-3 ${
+              drawerOpen ? "" : "hidden lg:block"
+            }`}
+          >
+            <div className="sticky top-24 flex flex-col gap-6 w-fit">
+
+              {/* Hard-coded common groups */}
+              <Filters head="Category" options={requirements?.category || []} />
+              <Filters head="Location" options={requirements?.location || []} />
+              <Filters head="Company" options={requirements?.company || []} />
+
+              {/* Dynamic rest */}
+              {Object.entries(requirements).map(([k, v]) => {
+                if (["category", "location", "company", "ownerIds"].includes(k)) return null;
+                return (
+                  <Filters key={k} head={k} options={Array.isArray(v) ? v : []} />
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* CENTER — JOBS LIST */}
+          <main className="col-span-12 lg:col-span-6">
+            <div className="flex flex-col gap-6">
+              {currentJobs.length === 0 ? (
+                <div className="text-center bg-white border border-gray-200 p-6 rounded-xl text-gray-600">
+                  No jobs available.
+                </div>
+              ) : (
+                currentJobs.map((job, idx) => (
+                  <JobCard key={job?._id ?? idx} job={job} />
+                ))
+              )}
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-8 bg-white border border-gray-200 rounded-xl p-5">
+              <PageNav
+                currentPage={currentJobPage}
+                totalPages={totalJobPages}
+                incrementer={setCurrentJobPage}
+              />
+            </div>
+          </main>
+
+          {/* RIGHT — APPLY STEPS / QUICK LINKS */}
+          <aside className="col-span-12 lg:col-span-3">
+            <div className="sticky top-24 flex flex-col gap-6">
+
+              <ApplySteps />
+
+              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                <h4 className="font-semibold text-gray-900 text-lg">Quick Links</h4>
+                <ul className="mt-3 space-y-2 text-sm">
+                  <li>
+                    <Link
+                      to={`/auth/seeker/${hash}/resume-builder`}
+                      className="text-purple-600 hover:underline"
+                    >
+                      Resume Builder
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to={`/auth/seeker/${hash}/saved-jobs`}
+                      className="text-purple-600 hover:underline"
+                    >
+                      Saved Jobs
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+          </aside>
+        </div>
+
+        <Bottom />
       </div>
     </div>
-  </div>
-)}
-    { !showApplicantPopup && <div className='min-h-[100vh] w-[90%] mx-auto mt-10'>
-     
+  );
+};
 
-    <div className='flex items-start justify-start gap-5'>
-      
-     <div className='p-5 rounded-2xl border border-[#ee82ee4a] h-auto w-[430px] bg-gray-900 max-h-[300vh] overflow-y-auto noScroll'>
-  <h1 className='text-2xl text-center text-gray-400 mb-5 '>All Filters</h1>
-  {
-    requirements && Object.entries(requirements).map(([key, value], index) => {
-      if (key === 'ownerIds') return null;
-      return(
-       
-      <Filters key={index} head={key} options={value} />
-    )})
-  }
-</div>
- 
-
-     <div>
-       <div className='px-5 min-h-[100vh] max-h-[300vh] overflow-scroll noScroll min-w-[640px] overflow-y-scroll noScroll'>
-        {
-          currentJobs?.map((item,index)=>{
-            return(
-              <JobCard key={index} job={item}   />
-            )
-          })
-        }
-      </div>
-
-      
-     </div>
-
-        <div className='px-5 '>
-          <ApplySteps/>
-          
-        </div>
-
-
-
-
-      </div> 
-
-      <div className='py-2 bg-gray-900 mt-5 rounded-xl'>
-        <PageNav currentPage={currentJobPage} totalPages={totalJobPages} incrementer={setCurrentJobPage} />
-      </div>
-
-
-      <Bottom/>  
-
-      
-
-
-      
-    </div>}
-    </>
-  )
-}
-
-export default Jobs
+export default Jobs;

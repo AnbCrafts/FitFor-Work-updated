@@ -1,49 +1,81 @@
-import React from 'react';
-import { FaSearch, FaUserTie, FaCheckCircle, FaMoneyBillWave, FaFilter } from 'react-icons/fa';
+import React from "react";
+import {
+  FaSearch,
+  FaUserTie,
+  FaCheckCircle,
+  FaMoneyBillWave,
+  FaFilter,
+} from "react-icons/fa";
 
 const Bottom = () => {
   const benefits = [
     {
-      icon: <FaSearch className="text-3xl text-purple-500" />,
+      icon: <FaSearch className="text-3xl text-purple-600" />,
       title: "Advanced Job Search",
-      desc: "Easily find jobs by location, skills, salary range, and experience.",
+      desc: "Find opportunities with filters for skills, salary, location and more.",
     },
     {
-      icon: <FaUserTie className="text-3xl text-blue-500" />,
+      icon: <FaUserTie className="text-3xl text-blue-600" />,
       title: "Verified Listings",
-      desc: "We ensure job listings are legitimate, verified, and updated.",
+      desc: "We ensure all job listings are legitimate and regularly updated.",
     },
     {
-      icon: <FaCheckCircle className="text-3xl text-green-500" />,
+      icon: <FaCheckCircle className="text-3xl text-green-600" />,
       title: "Easy Application Process",
-      desc: "Apply to jobs in just a few clicks with a pre-built profile.",
+      desc: "Apply instantly using your smart FitForWork profile.",
     },
     {
       icon: <FaMoneyBillWave className="text-3xl text-yellow-500" />,
       title: "Salary Transparency",
-      desc: "Know your worth—view expected salary for each job listing.",
+      desc: "Know expected compensation up-front for each job.",
     },
     {
-      icon: <FaFilter className="text-3xl text-pink-500" />,
-      title: "Powerful Filters",
-      desc: "Narrow down results by work mode, industry, education & more.",
+      icon: <FaFilter className="text-3xl text-pink-600" />,
+      title: "Smart Filters",
+      desc: "Narrow results using industry, experience, job type and more.",
     },
   ];
 
   return (
-    <div className="py-10 px-4 border-l border-t border-pink-500 mt-15">
-      <h2 className="text-3xl font-bold text-center text-gray-300 mb-8">Why Use Our Job Platform?</h2>
-      <div className="w-full mx-auto flex items-center justify-center gap-10  flex-wrap">
+    <div className="py-14 px-4 mt-16">
+      <h2 className="text-3xl font-bold text-center text-gray-800 mb-10">
+        Why Choose FitForWork?
+      </h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 max-w-6xl mx-auto">
+
         {benefits.map((item, idx) => (
           <div
             key={idx}
-            className=" p-6 shadow-md shadow-pink-900  border-b border-r hover:shadow-none border-pink-500 hover:border-t hover:border-l hover:border-b-0 hover:border-r-0 transition duration-300"
+            className="
+              bg-white 
+              rounded-xl 
+              p-6 
+              border 
+              border-gray-200 
+              shadow-sm 
+              hover:shadow-lg 
+              hover:-translate-y-1 
+              transition-all 
+              duration-300 
+              cursor-pointer 
+              flex flex-col 
+              items-start 
+              gap-3
+            "
           >
-            <div className="mb-4">{item.icon}</div>
-            <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-            <p className="text-sm text-gray-600">{item.desc}</p>
+            <div>{item.icon}</div>
+
+            <h3 className="text-lg font-semibold text-gray-900">
+              {item.title}
+            </h3>
+
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {item.desc}
+            </p>
           </div>
         ))}
+
       </div>
     </div>
   );

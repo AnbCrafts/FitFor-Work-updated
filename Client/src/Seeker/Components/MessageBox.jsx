@@ -1,52 +1,66 @@
-import React from 'react'
+import React from 'react';
 
 const MessageBox = () => {
   return (
-    <section className="bg-[#151527] text-white py-14 px-5 mt-10 rounded-2xl w-[90%] mx-auto">
-  <div className="max-w-5xl mx-auto text-center">
-    <h2 className="text-3xl font-bold mb-3 text-indigo-300">📬 Stay Connected</h2>
-    <p className="text-gray-300 mb-8">Got feedback, questions, or complaints? Fill the form below and we’ll get back to you shortly.</p>
+    <section className="w-[90%] mx-auto mt-12 bg-white rounded-2xl border border-gray-200 shadow-sm py-14 px-6">
+      <div className="max-w-4xl mx-auto text-center">
+        
+        <h2 className="text-3xl font-bold mb-2 text-gray-900">
+          📬 Stay Connected
+        </h2>
 
-    <form className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-      <input
-        type="text"
-        name="name"
-        placeholder="👤 Your Name"
-        className="p-3 rounded-md bg-[#1f1f3b] text-white border border-[#23237a] focus:border-red-500 outline-none"
-        required
-      />
-      <input
-        type="email"
-        name="email"
-        placeholder="✉️ Your Email"
-        className="p-3 rounded-md bg-[#1f1f3b] text-white border border-[#23237a] focus:border-red-500 outline-none"
-        required
-      />
-      <input
-        type="text"
-        name="subject"
-        placeholder="📝 Subject"
-        className="p-3 rounded-md bg-[#1f1f3b] text-white border border-[#23237a] focus:border-red-500 outline-none md:col-span-2"
-        required
-      />
-      <textarea
-        name="message"
-        rows="5"
-        placeholder="💬 Your Message"
-        className="p-3 rounded-md bg-[#1f1f3b] text-white border border-[#23237a] focus:border-red-500 outline-none md:col-span-2"
-        required
-      ></textarea>
-      <button
-        type="submit"
-        className="bg-blue-500 hover:bg-blue-600 transition text-white font-semibold py-3 px-6 rounded-md md:col-span-2"
-      >
-        🚀 Send Message
-      </button>
-    </form>
-  </div>
-</section>
+        <p className="text-gray-600 mb-10">
+          Have questions, feedback, or need support?  
+          Send us a message — we typically reply within 24 hours.
+        </p>
 
-  )
-}
+        {/* Form */}
+        <form className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+          
+          <input
+            type="text"
+            name="name"
+            placeholder="Your Name"
+            className="p-3 rounded-xl bg-gray-50 border border-gray-300 focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-none transition"
+            required
+          />
 
-export default MessageBox
+          <input
+            type="email"
+            name="email"
+            placeholder="Your Email"
+            className="p-3 rounded-xl bg-gray-50 border border-gray-300 focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-none transition"
+            required
+          />
+
+          <input
+            type="text"
+            name="subject"
+            placeholder="Subject"
+            className="p-3 rounded-xl bg-gray-50 border border-gray-300 focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-none transition md:col-span-2"
+            required
+          />
+
+          <textarea
+            name="message"
+            rows="5"
+            placeholder="Write your message here..."
+            className="p-3 rounded-xl bg-gray-50 border border-gray-300 focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-none transition md:col-span-2"
+            required
+          ></textarea>
+
+          <button
+            type="submit"
+            className="md:col-span-2 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition shadow-sm"
+          >
+            🚀 Send Message
+          </button>
+
+        </form>
+
+      </div>
+    </section>
+  );
+};
+
+export default MessageBox;

@@ -10,7 +10,7 @@ import { getHashSecret } from "../Utils/SecureHashing.Utils.js";
 import { createHash } from 'crypto'; 
 import Authority from "../Models/Authority.Models.js";
 import Admin from "../Models/Admin.Models.js";
-
+ 
 
 const registerUser = async (req, res) => {
     try {
@@ -307,6 +307,8 @@ const getUserDataBySeekerId = async(req,res)=>{
         
     }
 }
+
+
 
   
 export { registerUser ,loginUser,getAllUsers,getUserById,removeUserById, blockUserById,getUserDataBySeekerId};

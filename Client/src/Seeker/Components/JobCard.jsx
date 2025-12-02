@@ -1,61 +1,66 @@
-import React, { useContext } from 'react'
-import { WorkContext } from '../../ContextAPI/WorkContext'
-import {Link, useNavigate} from 'react-router-dom'
+// JobCard.jsx
+import React, { useContext } from "react";
+import { WorkContext } from "../../ContextAPI/WorkContext";
+import { useNavigate } from "react-router-dom";
 
+const JobCard = ({ job }) => {
+  const { convertToStandardDateTime } = useContext(WorkContext);
+  const navigate = useNavigate();
 
-const JobCard = ({job}) => {
-    const {convertToStandardDateTime} = useContext(WorkContext);
-    const navigate = useNavigate();
+  const initials = job?.title ? job.title.trim().charAt(0).toUpperCase() : "?";
 
   return (
-    <div className='w-[600px] shrink-0 min-h-[260px] bg-gray-900 rounded-2xl px-4 py-3 mb-5'>
-        <div className='flex items-center justify-between'>
-            <div> 
-                <h1 className='text-2xl'>{job?.title}</h1>
-                <div className='flex items-center justify-start flex-wrap pr-2 py-1 gap-1'>
-                <p className='border-l border-pink-500 pl-2 rounded-sm mr-2'>{job?.jobRole}</p>
-                <p className='border-l border-pink-500 pl-2 rounded-sm mr-2'>{job?.experienceRequired}</p>
-                <p className='border-l border-pink-500 pl-2 rounded-sm mr-2'>{convertToStandardDateTime(job?.deadline)}</p>
-                </div>
+    <article className="w-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h4 className="text-lg font-semibold text-gray-900 truncate">{job?.title}</h4>
 
-            </div>
-            <div className='w-[100px] bg-gray-900 h-[80px] border-l border-b border-pink-500  rounded-2xl text-center p-4 overflow-hidden'>
-            
-                <span className='text-7xl font-bold inline-block -mt-3 bg-gradient-to-r from-pink-500 via-violet-400 to-blue-400 text-transparent bg-clip-text '>{job?.title.charAt(0)}</span>
-            
-            </div>
-
+          <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-600">
+            <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-100">{job?.jobRole}</span>
+            <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-100">{job?.experienceRequired}</span>
+            <span className="px-2 py-1 rounded-md bg-gray-50 border border-gray-100">
+              {convertToStandardDateTime?.(job?.deadline) ?? "No deadline"}
+            </span>
+          </div>
         </div>
 
-        <div className='flex items-center justify-start gap-1 flex-wrap pr-2 py-2 mt-3'>
-            <p className='border-l border-pink-500 pl-2 rounded-sm mr-2'>💼 {job?.jobType}</p>
-            <p className='border-l border-pink-500 pl-2 rounded-sm mr-2'>💰 {job?.salaryRange}</p>
-            <p className='border-l border-pink-500 pl-2 rounded-sm mr-2'>📍 {job?.location}</p>
-            <p className='border-l border-pink-500 pl-2 rounded-sm mr-2 overflow-hidden text-ellipsis whitespace-nowrap'>📝
-                {
-                    job?.description
-                }</p>
+        <div className="flex-shrink-0 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 to-violet-400 flex items-center justify-center text-white font-bold text-xl">
+            {initials}
+          </div>
+          <span className="text-xs text-gray-500 mt-2">{job?.jobType}</span>
         </div>
+      </div>
 
-        <div className='flex items-center justify-start gap-2 flex-wrap mt-2'>
-            {
-                job?.skillsRequired?.map((item,index)=>{
-                    return(
-                        <span key={index}>•{item} </span>
-                    )
-                })
-            }
+      <div className="text-sm text-gray-700 flex items-center gap-3 flex-wrap">
+        <span className="px-2 py-1 rounded bg-gray-50 border border-gray-100">💼 {job?.jobType}</span>
+        <span className="px-2 py-1 rounded bg-gray-50 border border-gray-100">💰 {job?.salaryRange ?? "—"}</span>
+        <span className="px-2 py-1 rounded bg-gray-50 border border-gray-100">📍 {job?.location ?? "Remote"}</span>
+      </div>
+
+      <p className="text-sm text-gray-600 line-clamp-3">{job?.description}</p>
+
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <time>{convertToStandardDateTime?.(job?.createdAt) ?? ""}</time>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`detail/${job?._id}`)}
+            className="px-3 py-1.5 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700 transition"
+          >
+            View
+          </button>
+
+          <button
+            onClick={() => navigate(`apply/${job?._id}`)}
+            className="px-3 py-1.5 border border-purple-600 text-purple-600 rounded-md text-sm hover:bg-purple-50 transition"
+          >
+            Apply
+          </button>
         </div>
-        <div className='flex items-center justify-between mt-2 '>
-            <span className='text-gray-500'>{convertToStandardDateTime(job?.createdAt)}</span>
+      </div>
+    </article>
+  );
+};
 
-            <span onClick={()=>navigate(`detail/${job?._id}`)} className='text-gray-500 hover:text-gray-200 border py-1 px-6 border-gray-600 rounded cursor-pointer transition-all'>View</span>
-
-
-        </div>
-      
-    </div>
-  )
-}
-
-export default JobCard
+export default JobCard;

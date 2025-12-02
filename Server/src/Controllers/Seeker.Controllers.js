@@ -453,6 +453,139 @@ const editProfile = async(req,res)=>{
 }
 
 
+const getUserDashboardData = async (req, res) => {
+  try {
+    const { seekerId } = req.params;
+    if (!seekerId) return res.json({ success: false, message: "Cannot get seeker id" });
+
+    const seeker = await Seeker.findById(seekerId)
+      .populate("appliedFor")
+      .populate("savedJobs")
+      .populate("rejectedApplications")
+      .populate("offeredJobs")
+      .lean();
+
+    if (!seeker) return res.json({ success: false, message: "Cannot find seeker with this id" });
+
+    // Basic arrays
+    const skills = seeker.skills || [];
+    const applied = seeker.appliedFor || [];
+    const saved = seeker.savedJobs || [];
+    const rejected = seeker.rejectedApplications || [];
+    const offered = seeker.offeredJobs || [];
+
+    // Preference (added skills)
+    const preference = {
+      post: seeker.desiredPost || "",
+      ctc: seeker.expectedCTC || 0,
+      qualifications: seeker.qualifications || "",
+      location: seeker.preferredLocation || "",
+      type: seeker.preferredJobType || "",
+      status: seeker.status || "Fresher",
+      skills: skills // <-- new field
+    };
+
+    // Build flexible conditions (use regex for strings; $in for arrays)
+    const conditions = [];
+
+    // job role / post (try jobRole and post fields)
+    if (preference.post) {
+      const r = { $regex: preference.post, $options: "i" };
+      conditions.push({ jobRole: r });
+      conditions.push({ title: r });
+      // optional: also check `post` if you sometimes used that name
+      conditions.push({ post: r });
+    }
+
+    // qualifications (string)
+    if (preference.qualifications) {
+      conditions.push({ qualifications: { $regex: preference.qualifications, $options: "i" } });
+    }
+
+    // location
+    if (preference.location) {
+      conditions.push({ location: { $regex: preference.location, $options: "i" } });
+    }
+
+    // job type (enum Job.jobType)
+    if (preference.type) {
+      conditions.push({ jobType: preference.type }); // exact match to enum
+      conditions.push({ type: preference.type }); // fallback if different field name used
+    }
+
+    // skills matching: at least one skill in common (you can change to $all if you want all skills)
+    if (Array.isArray(preference.skills) && preference.skills.length > 0) {
+      conditions.push({ skillsRequired: { $in: preference.skills } });
+    }
+
+    // experience / status: Job.experienceRequired is a String in your schema.
+    // For "Fresher" seekers match jobs where experienceRequired looks like fresher/0 or is empty.
+    if (preference.status === "Fresher") {
+      conditions.push({
+        $or: [
+          { experienceRequired: { $regex: /fresher|entry|0|0-1|0-2/i } },
+          { experienceRequired: { $exists: false } },
+          { experienceRequired: "" }
+        ]
+      });
+    } else {
+      // For experienced seekers we avoid filtering out jobs that explicitly require "Fresher"
+      // (i.e. we only exclude jobs explicitly marked as "Fresher" if you want to)
+      // Here we'll just NOT add any strict experience filter; you can make it stricter if you store numeric ranges.
+    }
+
+    // salary/ctc: salaryRange is a string in Job schema.
+    // Numeric comparison is unreliable for string ranges — we do a best-effort regex check
+    // but strongly recommend storing numeric minSalary / maxSalary fields for accurate filtering.
+    if (preference.ctc && typeof preference.ctc === "number" && preference.ctc > 0) {
+      // try to match salary strings that contain the expected number, or simple comparators
+      // This is a heuristic — not guaranteed to work for all salary formats.
+      const salaryRegex = new RegExp(preference.ctc.toString());
+      conditions.push({
+        $or: [
+          { salaryRange: { $regex: salaryRegex } },
+          { salaryRange: { $regex: /lpa|lakhs|per annum|annum/i } }, // broad fallback so we don't accidentally exclude everything
+        ]
+      });
+      // NOTE: best fix: migrate schema to numeric salaryMin / salaryMax fields
+    }
+
+    // Compose final query
+    const query = conditions.length ? { $and: conditions } : {};
+
+    // Debug logs (remove in production)
+    // console.log("Preference:", preference);
+    // console.log("Query:", JSON.stringify(query, null, 2));
+    const matchCount = await Job.countDocuments(query);
+    // console.log("Matching jobs count:", matchCount);
+
+    // Fetch jobs (with limit)
+    const jobs = await Job.find(query).limit(200).lean();
+
+    const userDashboard = {
+      skills,
+      applied,
+      saved,
+      rejected,
+      offered,
+      jobs,
+      preference
+    };
+
+    return res.json({
+      success: true,
+      message: "Found seeker and dashboard data",
+      userDashboard
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
 
 
 
@@ -463,4 +596,7 @@ const editProfile = async(req,res)=>{
 
 
 
-export {editProfile, createProfile, getAllSeekers, getSeekerById, removeSeeker, getSeekerByUserId, getAllFactors,getCustomSeekers,getMatchingJobs,getWantedAuthorities }
+
+
+
+export {editProfile, createProfile, getAllSeekers, getSeekerById, removeSeeker, getSeekerByUserId, getAllFactors,getCustomSeekers,getMatchingJobs,getWantedAuthorities,getUserDashboardData }

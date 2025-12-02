@@ -23,10 +23,20 @@ import confused from './confused.png'
 import confused2 from './confused2.png'
 import feedback from './feedback.png'
 import faq from './faq.avif'
+import floating1 from './floating.png';
+import floating2 from './floating2.webp';
+import floating3 from './floating3.png';
+import google from './google.png'
+import microsoft from './microsoft.png'
+import netflix from './netflix.webp'
+import meta from './meta.png'
+import figma from './figma.png'
+import amazon from './amazon.png'
 
 
 export const assets = {
-
+    floating1,floating2,floating3,
+    google,microsoft,amazon,netflix,figma,meta,
     logo,
     confused,confused2,faq,feedback,
     admin,authority,seeker,

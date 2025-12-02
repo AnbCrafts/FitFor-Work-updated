@@ -1,9 +1,18 @@
 import React from "react";
-import { Dot, MapPin, Mail, Phone, Globe, Users, BriefcaseBusiness } from "lucide-react";
+import {
+  Dot,
+  MapPin,
+  Mail,
+  Phone,
+  Globe,
+  Users,
+  BriefcaseBusiness,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const OverView = ({ company,id }) => {
+const OverView = ({ company }) => {
   const navigate = useNavigate();
+
   const {
     companyName,
     companyLogo,
@@ -18,73 +27,90 @@ const OverView = ({ company,id }) => {
     _id,
   } = company;
 
-  const handleViewDetails = () => {
-    navigate(`detail/${_id}`);
-  };
-  
+  const handleViewDetails = () => navigate(`detail/${_id}`);
 
   return (
-    <div className="bg-gray-900 text-white p-5 rounded-2xl shadow-md border border-gray-700 hover:shadow-lg transition-all duration-300 max-w-2xl">
-      <div className="flex gap-4 items-center">
+    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-6">
+      {/* Header */}
+      <div className="flex items-start gap-4">
         <img
           src={companyLogo}
-          alt="Logo"
-          className="w-[60px] h-[60px] rounded-full object-cover border border-gray-500"
+          alt="Company Logo"
+          className="w-16 h-16 rounded-full object-cover border border-gray-300"
         />
-        <div>
-          <h2 className="text-xl font-bold text-pink-500">{companyName}</h2>
-          <p className="text-sm text-gray-400 flex items-center gap-1">
-            <MapPin className="w-4 h-4" /> {location}
+
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold text-gray-900">{companyName}</h2>
+          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+            <MapPin className="w-4 h-4 text-purple-600" />
+            {location}
           </p>
         </div>
       </div>
 
-      <div className="mt-4">
-        <p className="text-sm text-gray-300 line-clamp-2">{about}</p>
-      </div>
+      {/* About */}
+      <p className="text-gray-600 text-sm mt-4 line-clamp-2">{about}</p>
 
+      {/* Skills */}
       <div className="mt-4 flex flex-wrap gap-2">
-        {preferredSkills.slice(0, 10).map((skill, index) => (
+        {preferredSkills.slice(0, 8).map((skill, index) => (
           <span
             key={index}
-            className="flex items-center gap-1 bg-gray-800 px-3 py-1 rounded-full text-sm text-gray-200"
+            className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs border border-purple-200"
           >
-            <Dot className="text-pink-500 w-4 h-4" />
+            <Dot className="w-4 h-4 text-purple-500" />
             {skill.trim()}
           </span>
         ))}
-        {preferredSkills.length > 10 && (
-          <span className="text-sm text-gray-400">+ more</span>
+
+        {preferredSkills.length > 8 && (
+          <span className="text-sm text-gray-500">+ more</span>
         )}
       </div>
 
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-300">
-        <p className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-indigo-400" />
-          {companyEmail}
-        </p>
-        <p className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-indigo-400" />
-          {contactNumber}
-        </p>
-        <p className="flex items-center gap-2">
-          <Globe className="w-4 h-4 text-indigo-400" />
-          {companyWebsite}
-        </p>
-        <p className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-indigo-400" />
-          {companySize}
-        </p>
-        <p className="flex items-center gap-2">
-          <BriefcaseBusiness className="w-4 h-4 text-indigo-400" />
-          {industry}
-        </p>
+      {/* Info Grid */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4 text-sm text-gray-600">
+        {companyEmail && (
+          <p className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-purple-600" />
+            {companyEmail}
+          </p>
+        )}
+
+        {contactNumber && (
+          <p className="flex items-center gap-2">
+            <Phone className="w-4 h-4 text-purple-600" />
+            {contactNumber}
+          </p>
+        )}
+
+        {companyWebsite && (
+          <p className="flex items-center gap-2 break-all">
+            <Globe className="w-4 h-4 text-purple-600" />
+            {companyWebsite}
+          </p>
+        )}
+
+        {companySize && (
+          <p className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-purple-600" />
+            {companySize}
+          </p>
+        )}
+
+        {industry && (
+          <p className="flex items-center gap-2">
+            <BriefcaseBusiness className="w-4 h-4 text-purple-600" />
+            {industry}
+          </p>
+        )}
       </div>
 
+      {/* CTA */}
       <div className="mt-6 text-right">
         <button
           onClick={handleViewDetails}
-          className="text-pink-500 hover:text-pink-400 font-semibold"
+          className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
         >
           View Details →
         </button>

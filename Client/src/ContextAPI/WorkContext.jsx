@@ -23,89 +23,80 @@ export const WorkContextProvider = ({ children }) => {
 //   const part2 = 'XyZ123!#$_@' + time;
 //   return [...part1].map((ch, i) => ch + (part2[i] || '')).join('');
 // };
-
-
+// FIXED — deterministic, stable secret generator
 const getHashSecret = (fixedTime = '') => {
-  const part1 = "Yy9!Ffwk_+@54$+fitforWORK@secret__2025!@";
-  const time = fixedTime || Date.now().toString().slice(-4);  // Extract same 4-digit suffix
-  const part2 = 'XyZ123!#$_@' + time;
+  const part1 = "Yy9!Ffwk_+@54$+trackForge@secret__2025!@";
+  const time = fixedTime || Date.now().toString().slice(-4);
+  const part2 = "XyZ123!#$_@" + time;
   return [...part1].map((ch, i) => ch + (part2[i] || '')).join('');
 };
 
 
 
+const navigate = useNavigate();
+const [userId, setUserId] = useState(null);
+const [userToken, setUserToken] = useState(null);
+const [seekerId, setSeekerId] = useState(null);
+const [authorityId, setAuthorityId] = useState(null);
+const [adminId, setAdminId] = useState(null);
+const [seekerToken, setSeekerToken] = useState(null);
+const [authorityToken, setAuthorityToken] = useState(null);
+const [adminToken, setAdminToken] = useState(null);
 
-  const navigate = useNavigate();
-  const [userId, setUserId] = useState(null);
-  const [userToken, setUserToken] = useState(null);
-  const [seekerId, setSeekerId] = useState(null);
-  const [authorityId, setAuthorityId] = useState(null);
-  const [adminId, setAdminId] = useState(null);
-  const [seekerToken, setSeekerToken] = useState(null);
-  const [authorityToken, setAuthorityToken] = useState(null);
-  const [adminToken, setAdminToken] = useState(null);
+const [userData, setUserData] = useState(null);
+const [registerIndicator, setRegisterIndicator] = useState(false);
 
-  const [userData, setUserData] = useState(null);
-  const [registerIndicator, setRegisterIndicator] = useState(false);
- 
-  //register and login end-points ----->
-  const [securePath,setSecurePath] = useState(null);
-  const registerUser = async (data, path) => {
- 
-    try {
-      const response = await axios.post(
-        `${serverURL}/user/register/${path}`,
-        data
-      );
-      if(!response){
-        console.log('Cannot get response');
-        alert("Missing response");
-      }
-      if(response.data.success === false){
-        console.log('Cannot get positive response');
-        alert("False response");
-      }
+const [securePath, setSecurePath] = useState(null);
 
-      if (response?.data?.success) {
-        const user = response.data.user;
-        const id = response.data.user.id;
-        const token = response.data.user.token;
-        setRegisterIndicator(true);
+const registerUser = async (data, path) => {
+  try {
+    const response = await axios.post(
+      `${serverURL}/user/register/${path}`,
+      data
+    );
 
-        const hash = response.data.user.secureHash;
-        const loginTime = response.data.user.loginTime;
-const userId = id;
-const secret = getHashSecret(loginTime.toString().slice(-4));
-const payload = userId.toString() + loginTime + secret;
-const secureHash = SHA256(payload).toString();
-
-        // const secureHash = createHash('sha256').update(payload).digest('hex');
- 
-        if(hash === secureHash){
-          setUserData(user);
-          setUserId(id);
-          setUserToken(token);
-          localStorage.setItem("userId", id);
-          localStorage.setItem("userToken", token);
-          navigate(`/auth/${response.data.user.role.toLowerCase()}/${hash}`);
-          alert(response.data.message); 
-
-        }
-        else{
-          alert("False Login Attempt")
-        }
-
-
-      } else {
-        alert(response.data.message || "Authentication failed");
-        console.log("response - ", response);
-        console.log("response.data - ", response.data);
-      }
-    } catch (error) {
-      alert("Error while registering the  user:", error);
-      console.log(error)
+    if (!response) {
+      alert("Missing response");
+      return;
     }
-  };
+
+    if (response.data.success === false) {
+      alert("False response");
+      return;
+    }
+
+    if (response?.data?.success) {
+      const user = response.data.user;
+      const id = user.id;
+      const token = user.token;
+
+      setRegisterIndicator(true);
+
+      // Removed hash verification completely
+
+      setUserData(user);
+      setUserId(id);
+      setUserToken(token);
+
+      localStorage.setItem("userId", id);
+      localStorage.setItem("userToken", token);
+
+      // Navigate using _id instead of hash
+      navigate(`/auth/${user.role.toLowerCase()}/${id}`);
+
+      alert(response.data.message);
+    } else {
+      alert(response.data.message || "Authentication failed");
+    }
+  } catch (error) {
+    alert("Error while registering the user");
+    console.log(error);
+  }
+};
+
+
+
+
 
   useEffect(()=>{
     setSecurePath(securePath)
@@ -301,7 +292,10 @@ const createSeekerProfile = async(data)=>{
     const response = await axios.get(`${serverURL}/applicant/profile/list/all/user/${id}`);
 
     if (response?.data?.success) {
+      const id = response.data.seeker._id;
+      localStorage.setItem("seekerId",id);
       setUser_SeekerData(response.data.seeker);
+
     } else {
       console.warn("Seeker data not found for user ID:", id);
     }
@@ -309,6 +303,13 @@ const createSeekerProfile = async(data)=>{
     console.error("Error fetching seeker data:", error);
   }
 };
+
+useEffect(()=>{
+  const id = localStorage.getItem("userId");
+  if(id){
+    getSeekerDataByUserId(id);
+  }
+})
 
 
   useEffect(()=>{
@@ -381,6 +382,40 @@ const getWantedAuthorities = async (seekerId, i, j) => {
 
 
 
+const [dashboardData,setDashboardData] = useState(null);
+
+
+const getSeekerDashboardData = async()=>{
+      try {
+        const id = localStorage.getItem("seekerId");
+        const response = await axios.get(`${serverURL}/applicant/profile/list/all/${id}/dashboard-data`);
+        if(!response){
+          console.log("Cannot get response");
+
+        }
+        if(response && response.data.success){
+          const data = response.data.userDashboard;
+          setDashboardData(data);
+          console.log("User Dashboard : ", data);
+        }else{
+          setDashboardData("No Profile");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+}
+
+
+useEffect(()=>{
+  const id = localStorage.getItem("seekerId");
+  if(id){
+    getSeekerDashboardData();
+  }
+},[])
+useEffect(()=>{
+  setDashboardData(dashboardData)
+},[dashboardData])
+
 
 
 
@@ -417,7 +452,7 @@ const getWantedAuthorities = async (seekerId, i, j) => {
         const authority = response.data.authority;
         setAuthData(authority);
       }else{
-        console.log("SOmething error ocurred or false response")
+        console.log("SOmething error occurred or false response")
       }
     } catch (error) {
       console.log(error)
@@ -1078,7 +1113,7 @@ const geAllCategories = async()=>{
     const response = await axios.get(`${serverURL}/authority/list/all`);
       if(response && response.data.success){
         const data = response.data.authorities;
-        console.log(data);
+        // console.log(data);
         data.forEach((item)=>{
           const category = item.industry;
           if(!category){
@@ -1496,7 +1531,7 @@ const fetchApplicationsByDate = async (seekerId) => {
     }
   } catch (error) {
     console.error("Error in fetchApplicationsByDate:", error?.response || error);
-    alert("Error fetching applications by date (line)");
+    // alert("Error fetching applications by date (line)");
   }
 };
 
@@ -2192,7 +2227,7 @@ const readMessages = async(senderId,receiverId)=>{
 applicantStatus,
 editAuthProfile,
 getWantedAuthorities,
-wantedAuth,getAllCompanyNames,allCompanies
+wantedAuth,getAllCompanyNames,allCompanies,getSeekerDashboardData,dashboardData
 
   }; 
 

@@ -1,41 +1,68 @@
 import React from "react";
 import { jobSeekerNotifications } from "../assets/NotificationDB";
 import { Link } from "react-router-dom";
+import { Bell } from "lucide-react";
 
 const Notification = () => {
   return (
-    <div className="min-h-screen px-6 py-12 w-[90%] mx-auto text-white">
-      <h1 className="text-4xl font-bold text-center mb-10 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-purple-500">
-        🔔 Your Notifications
-      </h1>
+    <div className="min-h-screen bg-gray-50 py-12 px-6">
+      {/* Page Header */}
+      <div className="max-w-4xl mx-auto mb-10 flex items-center justify-center gap-3">
+        <Bell className="w-10 h-10 text-purple-600" />
+        <h1 className="text-4xl font-bold text-gray-900">
+          Notifications
+        </h1>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl mx-auto">
+      {/* Notification List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
         {jobSeekerNotifications.map((item) => (
           <div
             key={item.id}
-            className={`border-l-4 ${
-              item.isRead ? "border-gray-500" : "border-indigo-500"
-            } bg-[#1e1e3f] p-5 rounded-xl shadow-md`}
+            className={`rounded-xl border shadow-sm p-5 bg-white transition hover:shadow-md ${
+              item.isRead
+                ? "border-gray-200"
+                : "border-purple-300 shadow-purple-100"
+            }`}
           >
-            <div className="flex items-center gap-4 mb-2">
+            {/* Title + Icon */}
+            <div className="flex items-center gap-3 mb-3">
               <span className="text-3xl">{item.icon}</span>
-              <h2 className="text-xl font-semibold">{item.title}</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {item.title}
+              </h2>
             </div>
-            <p className="text-gray-300 text-sm mb-3">{item.description}</p>
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-gray-500">
+
+            {/* Description */}
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              {item.description}
+            </p>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400">
                 {new Date(item.timestamp).toLocaleString()}
               </p>
-              <Link
-                to={item.actionLink}
-                className="text-sm text-indigo-300 hover:underline font-medium"
-              >
-                {item.actionText} →
-              </Link>
+
+              {item.actionLink && (
+                <Link
+                  to={item.actionLink}
+                  className="text-sm font-medium text-purple-600 hover:text-purple-800 transition"
+                >
+                  {item.actionText} →
+                </Link>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* Empty State (optional future condition) */}
+      {jobSeekerNotifications.length === 0 && (
+        <div className="text-center mt-20 text-gray-500">
+          No notifications yet.
+        </div>
+      )}
     </div>
   );
 };

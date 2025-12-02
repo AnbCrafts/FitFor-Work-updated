@@ -6,7 +6,7 @@ import { generateToken } from "../Utils/JsonWebToken.Utils.js";
 import Notification from "../Models/Notification.Models.js";
 import { getHashSecret } from "../Utils/SecureHashing.Utils.js";
 import { createHash } from 'crypto'; 
-
+    
 const createAdmin = async (req, res) => {
     try {
         const { userId, adminName, accessLevel, secretCode, permissions } = req.body;

@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
-import { Pie } from 'react-chartjs-2';
+import React, { useMemo } from "react";
+import { Pie } from "react-chartjs-2";
 
 const ApplicationStatusPie = ({ data }) => {
   const chartData = useMemo(() => {
-    if (!data || typeof data !== 'object') return null;
+    if (!data || typeof data !== "object") return null;
 
     const labels = Object.keys(data);
     const values = Object.values(data);
@@ -12,21 +12,20 @@ const ApplicationStatusPie = ({ data }) => {
       labels,
       datasets: [
         {
-          label: 'Application Status',
           data: values,
           backgroundColor: [
-            'rgba(255, 99, 132, 0.6)',   // Applied
-            'rgba(54, 162, 235, 0.6)',   // Offered
-            'rgba(255, 206, 86, 0.6)',   // Rejected
-            'rgba(75, 192, 192, 0.6)',   // Viewed
+            "rgba(168, 85, 247, 0.6)",  // purple
+            "rgba(139, 92, 246, 0.6)",  // purple-light
+            "rgba(79, 70, 229, 0.6)",   // indigo-ish
+            "rgba(236, 72, 153, 0.6)",  // pink accent
           ],
           borderColor: [
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)',
-            'rgba(75, 192, 192, 1)',
+            "rgba(168, 85, 247, 1)",
+            "rgba(139, 92, 246, 1)",
+            "rgba(79, 70, 229, 1)",
+            "rgba(236, 72, 153, 1)",
           ],
-          borderWidth: 1,
+          borderWidth: 1.5,
         },
       ],
     };
@@ -37,26 +36,30 @@ const ApplicationStatusPie = ({ data }) => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'bottom',
+        position: "bottom",
         labels: {
-          color: '#fff',
-          font: {
-            size: 14,
-          },
+          color: "#444",
+          font: { size: 13, weight: "500" },
+          padding: 16,
         },
       },
     },
   };
 
   return (
-    <div className="p-4 rounded-xl bg-white/10 text-white border border-white/20 min-h-[300px]">
-      <h3 className="text-lg font-semibold mb-4 text-center">Application Status</h3>
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-xl font-semibold text-gray-800 text-center mb-4">
+        Application Status
+      </h3>
+
       {chartData ? (
-        <div className="w-full h-[250px]">
+        <div className="h-[260px] w-full">
           <Pie data={chartData} options={options} />
         </div>
       ) : (
-        <p className="text-center text-gray-300">No data available to display.</p>
+        <p className="text-center text-gray-500">
+          No data available to display.
+        </p>
       )}
     </div>
   );
