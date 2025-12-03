@@ -27,7 +27,7 @@ const EmployerForm = () => {
     location: "",
     contactNumber: "",
     about: "",
-    preferredSkills: "",
+    preferredSkills: [],
     preferredExperience: "",
     jobTypesOffered: "",
   });
@@ -83,421 +83,297 @@ const EmployerForm = () => {
   };
 
   return (
-    <div className="min-h-[100vh] w-[90%] mx-auto mt-5">
-      <div className="max-w-[900px] mx-auto py-5 px-10 border-t border-l border-green-500 rounded-2xl">
-        <h1 className="text-green-500 text-3xl font-semibold ">
-          Become an Official Authority Partner
-        </h1>
-        <p className="text-gray-400 text-md mt-5">
-          Join our network of trusted employers and start discovering top talent
-          today. By enrolling your organization, you gain access to a dedicated
-          dashboard, smart hiring tools, and the ability to post jobs tailored
-          to your company's needs. Let's grow your team with the right
-          candidates.
-        </p>
-      </div>
+    <div className="min-h-[100vh] w-[90%] mx-auto my-5">
+      <div className="max-w-4xl mx-auto text-center py-12">
+  <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-500 text-transparent bg-clip-text">
+    Become an Official Authority Partner
+  </h1>
 
-      <form
-        onSubmit={submitHandler}
-        className="max-w-[90%] mx-auto  p-10 border-green-500 border-b border-r rounded-2xl mt-10"
-      >
-      
-
-      
-
-        {/* Company Email */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="companyEmail"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Company Email
-          </label>
-          <input
-            type="email"
-            id="companyEmail"
-            name="companyEmail"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="Enter company email"
-            value={formData.companyEmail}
-            onChange={(e) =>
-              setFormData({ ...formData, companyEmail: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Company Name */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="companyName"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Company Name
-          </label>
-          <input
-            type="text"
-            id="companyName"
-            name="companyName"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="Enter company name"
-            value={formData.companyName}
-            onChange={(e) =>
-              setFormData({ ...formData, companyName: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Company Logo */}
-
-        {/* Company Website */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="companyWebsite"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Company Website
-          </label>
-          <input
-            type="text"
-            id="companyWebsite"
-            name="companyWebsite"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="Enter website URL"
-            value={formData.companyWebsite}
-            onChange={(e) =>
-              setFormData({ ...formData, companyWebsite: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Company Size */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="companySize"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Company Size
-          </label>
-          <input
-            type="text"
-            id="companySize"
-            name="companySize"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="E.g., 11-50, 51-200"
-            value={formData.companySize}
-            onChange={(e) =>
-              setFormData({ ...formData, companySize: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Industry */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="industry"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Industry
-          </label>
-          <input
-            type="text"
-            id="industry"
-            name="industry"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="E.g., IT, Education"
-            value={formData.industry}
-            onChange={(e) =>
-              setFormData({ ...formData, industry: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Location */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="location"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Location
-          </label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="City, Country"
-            value={formData.location}
-            onChange={(e) =>
-              setFormData({ ...formData, location: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Contact Number */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="contactNumber"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Contact Number
-          </label>
-          <input
-            type="text"
-            id="contactNumber"
-            name="contactNumber"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="Enter contact number"
-            value={formData.contactNumber}
-            onChange={(e) =>
-              setFormData({ ...formData, contactNumber: e.target.value })
-            }
-          />
-        </div>
-
-        {/* About */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="about"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            About
-          </label>
-          <textarea
-            rows={5}
-            type="text"
-            id="about"
-            name="about"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none flex-1"
-            placeholder="Company description"
-            value={formData.about}
-            onChange={(e) =>
-              setFormData({ ...formData, about: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Preferred Skills */}
-        <div className="flex flex-col items-start justify-start gap-5 mb-5 my-2 w-full">
-  <label
-    htmlFor="preferredSkills"
-    className="text-lg font-semibold text-gray-400"
-  >
-    Preferred Skills
-  </label>
-
-  <div className="flex flex-wrap gap-2 mx-auto max-w-[900px]">
-    { formData.preferredSkills !== "" && formData.preferredSkills?.map((skill, index) => (
-      <span
-        key={index}
-        className="bg-green-700 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2"
-      >
-        {skill}
-        <button
-          type="button"
-          onClick={() => {
-            const updatedSkills = [...formData.preferredSkills];
-            updatedSkills.splice(index, 1);
-            setFormData({ ...formData, preferredSkills: updatedSkills });
-          }}
-          className="text-white hover:text-red-300"
-        >
-          ✕
-        </button>
-      </span>
-    ))}
-  </div>
-
-  {/* Input to add new skills */}
-  <div className="w-full flex items-center justify-center">
-    <input
-    type="text"
-    id="preferredSkills"
-    name="preferredSkills"
-    className="px-5 text-gray-200   text-lg py-2 border-b bg-gray-800 rounded-sm border-green-500 outline-none h-12 flex-1 max-w-[900px] ml-19"
-    placeholder="Type skill and press Enter"
-    onKeyDown={(e) => {
-      if (
-        (e.key === "Enter" || e.key === ",") &&
-        e.target.value.trim() !== ""
-      ) {
-        e.preventDefault();
-        const skill = e.target.value.trim();
-        if (
-          !formData.preferredSkills?.includes(skill)
-        ) {
-          setFormData({
-            ...formData,
-            preferredSkills: [...(formData.preferredSkills || []), skill],
-          });
-        }
-        e.target.value = "";
-      }
-    }}
-  />
-  </div>
+  <p className="text-gray-600 text-lg mt-4 leading-relaxed max-w-3xl mx-auto">
+    Join our network of trusted employers and start discovering top talent today. 
+    Gain access to a dedicated dashboard, smart hiring tools, and seamless job 
+    posting capabilities designed to help you grow your team efficiently.
+  </p>
 </div>
 
-        {/* Preferred Experience */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="preferredExperience"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Preferred Experience
-          </label>
-          <input
-            type="number"
-            id="preferredExperience"
-            name="preferredExperience"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="E.g., 2 years"
-            value={formData.preferredExperience}
-            onChange={(e) =>
-              setFormData({ ...formData, preferredExperience: e.target.value })
-            }
-          />
-        </div>
 
-        {/* Job Types Offered */}
-        <div className="flex items-center justify-start gap-5 mb-5 my-2 w-full">
-          <label
-            htmlFor="jobTypesOffered"
-            className="text-lg w-[150px] font-semibold text-gray-400"
-          >
-            Job Types Offered
-          </label>
-          <input
-            type="text"
-            id="jobTypesOffered"
-            name="jobTypesOffered"
-            className="px-5 text-gray-200 text-lg py-2 border-b bg-gray-800 rounded-sm max-w-[900px] border-green-500 outline-none h-12 flex-1"
-            placeholder="E.g., Office, Remote"
-            value={formData.jobTypesOffered}
-            onChange={(e) =>
-              setFormData({ ...formData, jobTypesOffered: e.target.value })
-            }
-          />
-        </div>
+     <form
+  onSubmit={submitHandler}
+  className="max-w-7xl mx-auto mt-16 space-y-12"
+>
 
-        <div className="flex items-center justify-start gap-5 mt-10 my-2 w-full">
-          <span className="text-lg w-[150px] font-semibold text-gray-400">
-            Upload Logo
-          </span>
-          <label
-            htmlFor="companyLogo"
-            className={` ${
-              img
-                ? "h-[100px] w-[150px] rounded-xl border-transparent shadow-2xl shadow-gray-600"
-                : " h-12 px-5"
-            } text-gray-200 text-lg py-2 border border-green-500 outline-none flex items-center justify-between gap-5 cursor-pointer`}
-          >
-            {img ? (
-              <img
-                src={img}
-                alt="companyLogo"
-                className="w-[150px] h-[100px] rounded-xl object-cover"
-              />
-            ) : (
-              <>
-                <Upload /> <span>Upload Logo</span>
-              </>
-            )}
-          </label>
+  {/* Section: Company Information */}
+  <div>
+    <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+      Company Information
+    </h2>
 
-          <input
-            type="file"
-            id="companyLogo"
-            name="companyLogo"
-            className="hidden"
-            onChange={(e) => handleImageChange(e)}
-          />
-        </div>
+    <div className="grid md:grid-cols-2 gap-8">
 
-        <div className="w-fit mx-auto mt-30">
-          <button
-            type="submit"
-            className="py-3 px-15 border border-green-500 text-lg rounded-md cursor-pointer hover:bg-green-500 transition-all font-semibold"
-          >
-            Register
-          </button> 
-        </div>
-      </form>
-
-      <div className="w-full mt-10 py-16 bg-[#0c0c3a] text-white">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold mb-10 text-coral-500">
-            Why Choose Us as an Authority?
-          </h1>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Card 1 */}
-            <div className="bg-white/10 rounded-2xl p-6 shadow-sm hover:shadow-green-500 transition-all">
-              <h2 className="text-xl font-semibold mb-4 text-green-400">
-                Targeted Talent Access
-              </h2>
-              <p className="text-gray-500">
-                Reach skilled individuals tailored to your job requirements
-                using our smart filters and advanced matching engine.
-              </p>
-            </div>
-
-            {/* Card 2 */}
-            <div className="bg-white/10 rounded-2xl p-6 shadow-sm hover:shadow-green-500 transition-all">
-              <h2 className="text-xl font-semibold mb-4 text-green-400">
-                Streamlined Hiring
-              </h2>
-              <p className="text-gray-500">
-                Manage applications, shortlist candidates, and schedule
-                interviews – all from one seamless dashboard.
-              </p>
-            </div>
-
-            {/* Card 3 */}
-            <div className="bg-white/10 rounded-2xl p-6 shadow-sm hover:shadow-green-500 transition-all">
-              <h2 className="text-xl font-semibold mb-4 text-green-400">
-                Company Branding
-              </h2>
-              <p className="text-gray-500">
-                Showcase your company profile, values, and open roles to attract
-                the right talent and build credibility.
-              </p>
-            </div>
-
-            {/* Card 4 */}
-            <div className="bg-white/10 rounded-2xl p-6 shadow-sm hover:shadow-green-500 transition-all">
-              <h2 className="text-xl font-semibold mb-4 text-green-400">
-                AI-Powered Shortlisting
-              </h2>
-              <p className="text-gray-500">
-                Let our AI assist in identifying the best-fit candidates
-                quickly, saving you hours of manual effort.
-              </p>
-            </div>
-
-            {/* Card 5 */}
-            <div className="bg-white/10 rounded-2xl p-6 shadow-sm hover:shadow-green-500 transition-all">
-              <h2 className="text-xl font-semibold mb-4 text-green-400">
-                Insightful Analytics
-              </h2>
-              <p className="text-gray-500">
-                Get access to recruitment insights, application trends, and
-                hiring efficiency reports in real-time.
-              </p>
-            </div>
-
-            {/* Card 6 */}
-            <div className="bg-white/10 rounded-2xl p-6 shadow-sm hover:shadow-green-500 transition-all">
-              <h2 className="text-xl font-semibold mb-4 text-green-400">
-                Reliable Support
-              </h2>
-              <p className="text-gray-500">
-                Our support team is available to assist you throughout the
-                hiring process for a smooth experience.
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Email */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">Company Email</label>
+        <input
+          type="email"
+          className="input"
+          placeholder="example@company.com"
+          value={formData.companyEmail}
+          onChange={(e) =>
+            setFormData({ ...formData, companyEmail: e.target.value })
+          }
+        />
       </div>
+
+      {/* Name */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">Company Name</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="Company Pvt Ltd"
+          value={formData.companyName}
+          onChange={(e) =>
+            setFormData({ ...formData, companyName: e.target.value })
+          }
+        />
+      </div>
+
+      {/* Website */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">Website</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="https://company.com"
+          value={formData.companyWebsite}
+          onChange={(e) =>
+            setFormData({ ...formData, companyWebsite: e.target.value })
+          }
+        />
+      </div>
+
+      {/* Size */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">Company Size</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="11–50, 51–200"
+          value={formData.companySize}
+          onChange={(e) =>
+            setFormData({ ...formData, companySize: e.target.value })
+          }
+        />
+      </div>
+
+      {/* Industry */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">Industry</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="IT, Finance, Education…"
+          value={formData.industry}
+          onChange={(e) =>
+            setFormData({ ...formData, industry: e.target.value })
+          }
+        />
+      </div>
+
+      {/* Location */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">Location</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="City, Country"
+          value={formData.location}
+          onChange={(e) =>
+            setFormData({ ...formData, location: e.target.value })
+          }
+        />
+      </div>
+
+      {/* Contact */}
+      <div className="flex flex-col gap-2 md:col-span-2">
+        <label className="text-gray-700 font-medium">Contact Number</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="+91 9876543210"
+          value={formData.contactNumber}
+          onChange={(e) =>
+            setFormData({ ...formData, contactNumber: e.target.value })
+          }
+        />
+      </div>
+
+    </div>
+  </div>
+
+  <hr className="border-gray-300" />
+
+  {/* Section: About */}
+  <div>
+    <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+      About the Company
+    </h2>
+
+    <textarea
+      rows={5}
+      className="input w-full"
+      placeholder="Describe your company's mission, culture, and values..."
+      value={formData.about}
+      onChange={(e) => setFormData({ ...formData, about: e.target.value })}
+    />
+  </div>
+
+  <hr className="border-gray-300" />
+
+  {/* Section: Preferred Skills & Experience */}
+  <div>
+    <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+      Candidate Preferences
+    </h2>
+
+    <div className="grid md:grid-cols-2 gap-8">
+
+      {/* Preferred Skills */}
+      <div className="flex flex-col gap-3">
+        <label className="text-gray-700 font-medium mb-2">
+          Preferred Skills
+        </label>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2">
+          {formData.preferredSkills?.map((skill, index) => (
+            <span
+              key={index}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm"
+            >
+              {skill}
+              <button
+                type="button"
+                className="text-purple-500 hover:text-red-500"
+                onClick={() => {
+                  const updated = [...formData.preferredSkills];
+                  updated.splice(index, 1);
+                  setFormData({ ...formData, preferredSkills: updated });
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+
+        {/* Input */}
+        <input
+          type="text"
+          className="input"
+          placeholder="Type a skill and press Enter"
+          onKeyDown={(e) => {
+            if (
+              (e.key === "Enter" || e.key === ",") &&
+              e.target.value.trim() !== ""
+            ) {
+              e.preventDefault();
+              const skill = e.target.value.trim();
+              if (!formData.preferredSkills?.includes(skill)) {
+                setFormData({
+                  ...formData,
+                  preferredSkills: [...(formData.preferredSkills || []), skill],
+                });
+              }
+              e.target.value = "";
+            }
+          }}
+        />
+      </div>
+
+      {/* Preferred Experience */}
+      <div className="flex flex-col gap-2">
+        <label className="text-gray-700 font-medium">
+          Preferred Experience (Years)
+        </label>
+        <input
+          type="number"
+          className="input"
+          placeholder="e.g., 2"
+          value={formData.preferredExperience}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              preferredExperience: e.target.value,
+            })
+          }
+        />
+      </div>
+
+      {/* Job Types */}
+      <div className="flex flex-col gap-2 md:col-span-2">
+        <label className="text-gray-700 font-medium">Job Types Offered</label>
+        <input
+          type="text"
+          className="input"
+          placeholder="Remote, Office, Hybrid"
+          value={formData.jobTypesOffered}
+          onChange={(e) =>
+            setFormData({ ...formData, jobTypesOffered: e.target.value })
+          }
+        />
+      </div>
+
+    </div>
+  </div>
+
+  <hr className="border-gray-300" />
+
+  {/* Section: Logo Upload */}
+  <div>
+    <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+      Upload Company Logo
+    </h2>
+
+    <label
+      htmlFor="companyLogo"
+      className="flex flex-col items-center justify-center w-full md:w-[350px] h-[180px] bg-white border-2 border-dashed border-purple-300 rounded-xl text-gray-500 cursor-pointer hover:bg-purple-50 transition"
+    >
+      {img ? (
+        <img
+          src={img}
+          alt="Logo"
+          className="h-full w-full object-cover rounded-xl"
+        />
+      ) : (
+        <>
+          <Upload className="w-8 h-8 text-purple-500 mb-3" />
+          <span className="font-medium">Click to upload logo</span>
+        </>
+      )}
+    </label>
+
+    <input
+      type="file"
+      id="companyLogo"
+      className="hidden"
+      onChange={(e) => handleImageChange(e)}
+    />
+  </div>
+
+  {/* Submit Button */}
+  <div className="text-center">
+    <button
+      type="submit"
+      className="px-10 py-3 bg-purple-600 text-white rounded-xl text-lg font-semibold hover:bg-purple-700 shadow-md transition"
+    >
+      Register Company
+    </button>
+  </div>
+</form>
+
+
+      
     </div>
   );
 };

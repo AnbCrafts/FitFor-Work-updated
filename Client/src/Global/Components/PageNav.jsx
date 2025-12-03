@@ -1,4 +1,4 @@
-// PageNav.jsx
+// PageNav.jsx (SaaS White + Purple UI)
 import React from "react";
 
 const PageNav = ({ currentPage = 1, totalPages = 1, incrementer = () => {} }) => {
@@ -14,31 +14,42 @@ const PageNav = ({ currentPage = 1, totalPages = 1, incrementer = () => {} }) =>
   };
 
   return (
-    <nav className="flex items-center justify-center gap-3">
+    <nav className="flex items-center justify-center gap-2 py-3">
+      {/* Prev Button */}
       <button
         onClick={prev}
         disabled={currentPage === 1}
-        className="px-3 py-1 rounded-md border bg-white text-sm disabled:opacity-50"
+        className="px-4 py-2 rounded-xl border border-gray-300 bg-white 
+                   text-gray-700 text-sm font-medium shadow-sm 
+                   hover:bg-gray-100 transition-all disabled:opacity-40"
       >
         Prev
       </button>
 
+      {/* Page Numbers */}
       {pagesToShow().map((p) => (
         <button
           key={p}
           onClick={() => incrementer(p)}
-          className={`px-3 py-1 rounded-md text-sm ${
-            p === currentPage ? "bg-purple-600 text-white" : "bg-white border"
-          }`}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm
+            ${
+              p === currentPage
+                ? "bg-purple-600 text-white shadow-purple-300"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
+            }
+          `}
         >
           {p}
         </button>
       ))}
 
+      {/* Next Button */}
       <button
         onClick={next}
         disabled={currentPage === totalPages}
-        className="px-3 py-1 rounded-md border bg-white text-sm disabled:opacity-50"
+        className="px-4 py-2 rounded-xl border border-gray-300 bg-white 
+                   text-gray-700 text-sm font-medium shadow-sm
+                   hover:bg-gray-100 transition-all disabled:opacity-40"
       >
         Next
       </button>
