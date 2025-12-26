@@ -56,12 +56,12 @@ const registerUser = async (data, path) => {
     );
 
     if (!response) {
-      alert("Missing response");
+      console.log("Missing response");
       return;
     }
 
     if (response.data.success === false) {
-      alert("False response");
+      console.log("False response");
       return;
     }
 
@@ -82,14 +82,14 @@ const registerUser = async (data, path) => {
       localStorage.setItem("userToken", token);
 
       // Navigate using _id instead of hash
-      navigate(`/auth/${user.role.toLowerCase()}/${id}`);
+      navigate(`/auth/${user.role.toLowerCase()}/${response?.data?.user?.secureHash}`);
 
-      alert(response.data.message);
+      console.log(response.data.message);
     } else {
-      alert(response.data.message || "Authentication failed");
+      console.log(response.data.message || "Authentication failed");
     }
   } catch (error) {
-    alert("Error while registering the user");
+    console.log("Error while registering the user");
     console.log(error);
   }
 };
@@ -205,7 +205,7 @@ const registerUser = async (data, path) => {
       
     } catch (error) {
       console.log(error);
-      alert("Internal Server Error");
+      console.log("Internal Server Error");
     }
   }
 
@@ -225,7 +225,7 @@ const createSeekerProfile = async(data)=>{
         },
       });
       if(!response){
-        alert("Cannot get response")
+        console.log("Cannot get response")
       }
       if(response && response.data.success){
         console.log(response.data.message);
@@ -233,7 +233,7 @@ const createSeekerProfile = async(data)=>{
         setInitProfileData(data);
       
       }else{
-        alert("Failed to create your job seeker profile, got negative response")
+        console.log("Failed to create your job seeker profile, got negative response")
       }
     } catch (error) {
       console.log(error);
@@ -346,7 +346,7 @@ useEffect(()=>{
 
 const getWantedAuthorities = async (seekerId, i, j) => {
   if (!seekerId) {
-    alert("Provide Seeker ID");
+    console.log("Provide Seeker ID");
     return;
   }
 
@@ -372,10 +372,10 @@ const getWantedAuthorities = async (seekerId, i, j) => {
         authorities,
       });
     } else {
-      alert(response.data.message || "Could not get a positive response");
+      console.log(response.data.message || "Could not get a positive response");
     }
   } catch (error) {
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
     console.log(error);
   }
 };
@@ -508,7 +508,7 @@ setAllAuthorities(allAuthorities);
 
   const getMatchedData = async(id)=>{
     if(!id){
-      alert("Authority ID Is required");
+      console.log("Authority ID Is required");
     }
     try {
       const response = await axios.get(`${serverURL}/authority/list/all/seekers/matching-skills/${id}`);
@@ -523,11 +523,11 @@ setAllAuthorities(allAuthorities);
         })
 
       }else{
-        alert(response.data.message || "Cannot get response")
+        console.log(response.data.message || "Cannot get response")
       }
       
     } catch (error) {
-      alert("Internal Server Error");
+      console.log("Internal Server Error");
       console.log(error);
     }
 
@@ -535,7 +535,7 @@ setAllAuthorities(allAuthorities);
 
  const editAuthProfile = async (id, data) => {
   if (!id || !data || Object.keys(data).length === 0) {
-    alert("Provide valid ID and profile data");
+    console.log("Provide valid ID and profile data");
     return;
   }
 
@@ -552,14 +552,14 @@ setAllAuthorities(allAuthorities);
     );
 
     if (response.data.success) {
-      alert("Profile updated successfully!");
+      console.log("Profile updated successfully!");
       return response.data;
     } else {
-      alert(response.data.message || "Failed to update profile");
+      console.log(response.data.message || "Failed to update profile");
     }
   } catch (error) {
     console.error("Edit profile error:", error);
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
   }
 };
 
@@ -570,11 +570,11 @@ const getAllCompanyNames  = async()=>{
       if(response && response.data.success){
         setAllCompanies(response.data.companyNames);
       }else{
-        alert("Cannot get positive response")
+        console.log("Cannot get positive response")
       }
     
   } catch (error) {
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
     console.log(error);
   }
 }
@@ -590,20 +590,20 @@ const getAllCompanyNames  = async()=>{
   const [jobs,setJobs] = useState(null);
   const createJob = async(data)=>{
     if(!data){
-      alert("Provide DATA")
+      console.log("Provide DATA")
     }
     try {
       const response = await axios.post(`${serverURL}/job/create/new`, data);
       if(!response){
         console.log("Found no response");
-        alert("No Response");
+        console.log("No Response");
       }
       if(response.data.success ===false){
-        console.log("Found false response");
-        alert("Found false response")
+        
+        console.log("Found false response",response)
       }
       if(response && response.data.success){
-        alert("Job Posted Successfully");
+        console.log("Job Posted Successfully");
       }
 
       console.log("Posted data is -> ", data);
@@ -619,7 +619,7 @@ const getAllCompanyNames  = async()=>{
     try {
       const response = await axios.get(`${serverURL}/job/list/all/authority/${id}`);
       if(!id){
-        alert("Cannot get id");
+        console.log("Cannot get id");
       }
       if(response && response.data.success){
           console.log("Got all the jobs for this id");
@@ -699,12 +699,12 @@ const getAllCompanyNames  = async()=>{
         const data = response.data.applicantId;
         setApplicant_id(data);
 
-        alert("You have applied for this job successfully");
-        alert(data);
+        console.log("You have applied for this job successfully");
+        console.log(data);
       }
       else{
         console.log("Could not get positive response");
-        alert(response.data.message || "Failed to apply")
+        console.log(response.data.message || "Failed to apply")
       }
     } catch (error) {
       console.log(error)
@@ -745,14 +745,14 @@ const getAllCompanyNames  = async()=>{
 
   const getApplicantById = async (id, indicator) => {
   if (!id) {
-    alert("Cannot get Id");
+    console.log("Cannot get Id");
     return;
   }
 
 
 
   if (!indicator) {
-    alert("Provide Indicator");
+    console.log("Provide Indicator");
     return;
   }
 
@@ -766,7 +766,7 @@ const getAllCompanyNames  = async()=>{
     } else if (indicator === 3) {
       response = await axios.get(`${serverURL}/job-applicant/list/all/company/${id}`);
     } else {
-      alert("No valid indicator provided");
+      console.log("No valid indicator provided");
       return;
     }
 
@@ -787,7 +787,7 @@ const getAllCompanyNames  = async()=>{
 };
   const getApplicantBySeekerId = async (id) => {
   if (!id) {
-    alert("Cannot get Id");
+    console.log("Cannot get Id");
     return;
   }
 
@@ -814,7 +814,7 @@ const [jobApplicants,setJobApplicants] = useState(null);
 
 const getApplicantsByJobId = async(id)=>{
   if (!id) {
-    alert("Cannot get Id");
+    console.log("Cannot get Id");
     return;
   }
   try {
@@ -835,10 +835,10 @@ const getApplicantsByJobId = async(id)=>{
 
   const getApplicantByJobAndCompanyId = async(compId,jobId)=>{
       if(!compId){
-        alert("Provide company ID");
+        console.log("Provide company ID");
       }
       if(!jobId){
-        alert("Provide Job ID");
+        console.log("Provide Job ID");
       }
       try {
         const response = await axios.get(`${serverURL}/list/all/company/${compId}/job/${jobId}`);
@@ -862,21 +862,21 @@ const getApplicantsByJobId = async(id)=>{
     } else if (action === 'reject') {
       response = await axios.post(`${serverURL}/job-applicant/list/all/applicant/${applicantId}/job/${jobId}/reject`);
     } else {
-      alert("Invalid action text. Use 'accept' or 'reject'");
+      console.log("Invalid action text. Use 'accept' or 'reject'");
       return; // stop the function
     }
 
     if (response && response.data.success) {
-      alert(`Applicant ${action}ed successfully`);
+      console.log(`Applicant ${action}ed successfully`);
     } else {
-      alert("Could not get positive response");
+      console.log("Could not get positive response");
     }
 
     await getAllApplicants();
 
   } catch (error) {
     console.log(error);
-    alert("An error occurred while processing the request");
+    console.log("An error occurred while processing the request");
   }
 };
 
@@ -899,7 +899,7 @@ const getApplicantsByJobId = async(id)=>{
       const response = await axios.post(`${serverURL}/admin/existing/login`, data);
       if(response && response.data.success){
 
-        alert(response.data.message);
+        console.log(response.data.message);
         const data = response.data.admin;
         const token = response.data.token;
         const id = response.data.admin.id;
@@ -915,7 +915,7 @@ const secureHash = SHA256(payload).toString();
  
         if(hash === secureHash){
           navigate(`/auth/admin/${hash}`);
-          alert(response.data.message); 
+          console.log(response.data.message); 
           setAdminToken(token);
       setAdminId(id);
       localStorage.setItem("adminId",id);
@@ -923,13 +923,13 @@ const secureHash = SHA256(payload).toString();
 
         }
         else{
-          alert("False Login Attempt")
+          console.log("False Login Attempt")
         }
       
       } 
       
     } catch (error) {
-      alert("Failed to login admin")
+      console.log("Failed to login admin")
       console.log(error)
     }
   }
@@ -978,7 +978,7 @@ const secureHash = SHA256(payload).toString();
   const [singleEmployee,setSingleEmployee] = useState(null);
  const getEmployeeById = async (id) => {
   if (!id) {
-    alert("Please provide a valid Employee ID.");
+    console.log("Please provide a valid Employee ID.");
     return; // ✅ prevent continuing execution
   }
 
@@ -993,20 +993,20 @@ const secureHash = SHA256(payload).toString();
     }
   } catch (error) {
     console.error("❌ Error fetching employee:", error.message);
-    alert("An error occurred while fetching employee data.");
+    console.log("An error occurred while fetching employee data.");
   }
 };
 
   const removeEmployee = async(id)=>{
     if(!id){
-      alert("Provide ID")
+      console.log("Provide ID")
     }
     try {
       const response = await axios.delete(`${serverURL}/employee/list/all/${id}/remove`);
       if(response && response.data.success){
-        alert("Employee Deleted Successfully");
+        console.log("Employee Deleted Successfully");
       }else{
-        alert("Could not get positive response")
+        console.log("Could not get positive response")
       }
 
     } catch (error) {
@@ -1026,7 +1026,7 @@ const secureHash = SHA256(payload).toString();
   const [thisJobEmployee,setThisJobEmployee] = useState(null);
   const getEmployeeByJobId = async(id)=>{
      if(!id){
-      alert("Provide ID")
+      console.log("Provide ID")
     }
     
     try {
@@ -1053,12 +1053,12 @@ const secureHash = SHA256(payload).toString();
         const data = response.data.empData;
         setEmpProfileData(data);
       }else{
-        alert(response.data.message || "Cannot get response")
+        console.log(response.data.message || "Cannot get response")
       }
       
     } catch (error) {
       console.log(error);
-      alert("Internal server error");
+      console.log("Internal server error");
 
     }
   }
@@ -1066,7 +1066,7 @@ const [thisAuthAllEmployees,setThisAuthAllEmployees] = useState(null);
 
 const getEmployeeByCompany = async(id)=>{
   if(!id){
-    alert("Provide ID");
+    console.log("Provide ID");
   }
   try {
     const response = await axios.get(`${serverURL}/employee/list/all/company/${id}`);
@@ -1075,11 +1075,11 @@ const getEmployeeByCompany = async(id)=>{
       setThisAuthAllEmployees(data);
 
     }else{
-      alert(response.data.message || "Cannot get response");
+      console.log(response.data.message || "Cannot get response");
     }
   } catch (error) {
     console.log(error);
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
   }
 }
   
@@ -1125,12 +1125,12 @@ const geAllCategories = async()=>{
         setAllCategories(dataArray);
       }
       else{
-        alert("Failed to get all categories");
+        console.log("Failed to get all categories");
       }
     
   } catch (error) {
     console.log(error);
-    alert("Failed due to internal server error")
+    console.log("Failed due to internal server error")
   }
 
 }
@@ -1140,25 +1140,25 @@ const geAllCategories = async()=>{
 const [savedJobsForThisUser, setSavedJobsForThisUser] = useState(null);
 const saveJob = async(seekerId,jobId)=>{
   if(!seekerId && !jobId){
-    alert("Provide both ids")
+    console.log("Provide both ids")
   }
   try {
     const response = await axios.put(`${serverURL}/job/${jobId}/applicant/${seekerId}/save`);
     if(response && response.data.success){
-      alert("Saved the job Successfully");
+      console.log("Saved the job Successfully");
     }else{
-      alert(response.data.message ||"Cannot save the job.");
+      console.log(response.data.message ||"Cannot save the job.");
 
     }
   } catch (error) {
     console.log(error);
-    alert("Failed due tp internal server");
+    console.log("Failed due tp internal server");
   }
 }
  
 const getAllSavedJobs = async (seekerId) => {
   if (!seekerId) {
-    alert("Provide seeker ID");
+    console.log("Provide seeker ID");
     return;
   }
 
@@ -1191,11 +1191,11 @@ const getAllSavedJobs = async (seekerId) => {
 
       setSavedJobsForThisUser(validJobs);
     } else {
-      alert(response?.data?.message || "No saved jobs found.");
+      console.log(response?.data?.message || "No saved jobs found.");
     }
   } catch (error) {
     console.error("💥 Error in getAllSavedJobs:", error);
-    alert("Internal server error while fetching saved jobs.");
+    console.log("Internal server error while fetching saved jobs.");
   }
 };
 
@@ -1222,12 +1222,12 @@ const getNotifications_ByType = async (typesArray) => {
     if (allNotifications.length > 0) {
       setTypeNotifications(allNotifications);
     } else {
-      alert("No notifications found for the provided types.");
+      console.log("No notifications found for the provided types.");
     }
 
   } catch (error) {
     console.error("❌ Error fetching notifications:", error.message);
-    alert("Internal server error");
+    console.log("Internal server error");
   }
 };
 
@@ -1241,13 +1241,13 @@ const getNotificationById = async(id)=>{
       setSingleNotificationData(data);
 
     }else{
-      alert(response.data.message || "Cannot get response");
+      console.log(response.data.message || "Cannot get response");
     }
 
     
   } catch (error) {
     console.log(error);
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
   }
   
 }
@@ -1262,11 +1262,11 @@ const getAllRequirementsForJob = async()=>{
         setRequirements(data);
 
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server error");
+    console.log("Internal Server error");
     console.log(error);
   }
 
@@ -1281,11 +1281,11 @@ const getCustomJobs = async(query)=>{
       const data = response.data.jobs;
       setCustomJobs(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
   } catch (error) {
     console.log(error);
-    alert("Internal server error")
+    console.log("Internal server error")
   }
 }
 
@@ -1347,12 +1347,12 @@ const getSkills = async()=>{
         const data = response.data.allSkills;
         setAllSkills(data);
       }else{
-        alert(response.data.message || "Cannot get positive response");
+        console.log(response.data.message || "Cannot get positive response");
       }
     
   } catch (error) {
     console.log(error)
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
   }
 
 }
@@ -1368,11 +1368,11 @@ const response = await axios.get(`${serverURL}/applicant/profile/list/all/factor
       setCustomSuggestions(data);
 
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("INternal Server error")
+    console.log("INternal Server error")
     console.log(error);
 
   }
@@ -1385,7 +1385,7 @@ useEffect(() => {
 const [thisAuthAllApplicants,setThisAuthAllApplicants] = useState(null);
 const getAllApplicantsForThisAuth = async(ownerId)=>{
   if(!ownerId){
-    alert("Provide ID");
+    console.log("Provide ID");
   }
   try {
     const response = await axios.get(`${serverURL}/job-applicant/list/all/company/${ownerId}/data`);
@@ -1393,12 +1393,12 @@ const getAllApplicantsForThisAuth = async(ownerId)=>{
       const data = response.data.allApplicantData;
       setThisAuthAllApplicants(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
     console.log(error);
-    alert("Internal Server Error")
+    console.log("Internal Server Error")
   }
 }
 
@@ -1464,13 +1464,13 @@ const getUserIdByToken = async()=>{
         if(userId){
         setGlobalId(userId)
         }else{
-          alert("cannot get UserID")
+          console.log("cannot get UserID")
         }
 
 
 
       }else{
-          alert("cannot get token")
+          console.log("cannot get token")
 
       }
 
@@ -1498,14 +1498,14 @@ const validateResponse = async (response) => {
   if (response && response.data?.success) {
     return response.data.data;
   } else {
-    alert(response?.data?.message || "Something went wrong!");
+    console.log(response?.data?.message || "Something went wrong!");
     return null;
   }
 };
 
 // 1. Fetch Pie Chart Data - Application Status
 const fetchApplicationStatusPie = async (seekerId) => {
-  if (!seekerId) return alert("Seeker ID missing in fetchApplicationStatusPie");
+  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationStatusPie");
 
   try {
     const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}`);
@@ -1515,13 +1515,13 @@ const fetchApplicationStatusPie = async (seekerId) => {
     }
   } catch (error) {
     console.error("Error in fetchApplicationStatusPie:", error?.response || error);
-    alert("Error fetching application status (pie)");
+    console.log("Error fetching application status (pie)");
   }
 };
 
 // 2. Fetch Line Chart Data - Applications by Date
 const fetchApplicationsByDate = async (seekerId) => {
-  if (!seekerId) return alert("Seeker ID missing in fetchApplicationsByDate");
+  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationsByDate");
 
   try {
     const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}/date`);
@@ -1531,13 +1531,13 @@ const fetchApplicationsByDate = async (seekerId) => {
     }
   } catch (error) {
     console.error("Error in fetchApplicationsByDate:", error?.response || error);
-    // alert("Error fetching applications by date (line)");
+    // console.log("Error fetching applications by date (line)");
   }
 };
 
 // 3. Fetch Bar Chart Data - Applications by Category
 const fetchApplicationsByCategory = async (seekerId) => {
-  if (!seekerId) return alert("Seeker ID missing in fetchApplicationsByCategory");
+  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationsByCategory");
 
   try {
     const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}/category`);
@@ -1547,13 +1547,13 @@ const fetchApplicationsByCategory = async (seekerId) => {
     }
   } catch (error) {
     console.error("Error in fetchApplicationsByCategory:", error?.response || error);
-    alert("Error fetching applications by category (bar)");
+    console.log("Error fetching applications by category (bar)");
   }
 };
 
 // 4. Fetch Horizontal Bar Chart - Applications by Location
 const fetchApplicationsByLocation = async (seekerId) => {
-  if (!seekerId) return alert("Seeker ID missing in fetchApplicationsByLocation");
+  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationsByLocation");
 
   try {
     const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}/location`);
@@ -1563,13 +1563,13 @@ const fetchApplicationsByLocation = async (seekerId) => {
     }
   } catch (error) {
     console.error("Error in fetchApplicationsByLocation:", error?.response || error);
-    alert("Error fetching applications by location (horizontal bar)");
+    console.log("Error fetching applications by location (horizontal bar)");
   }
 }; 
 
 // 5. Fetch Radar Chart - Resume Score Breakdown
 const fetchResumeGrade = async (seekerId) => {
-  if (!seekerId) return alert("Seeker ID missing in fetchResumeGrade");
+  if (!seekerId) return console.log("Seeker ID missing in fetchResumeGrade");
 
   try {
     const response = await axios.get(`${serverURL}/graph/applicant-profile/${seekerId}/grade`);
@@ -1579,7 +1579,7 @@ const fetchResumeGrade = async (seekerId) => {
     }
   } catch (error) {
     console.error("Error in fetchResumeGrade:", error?.response || error);
-    alert("Error fetching resume grade (radar)");
+    console.log("Error fetching resume grade (radar)");
   }
 }; 
  
@@ -1591,7 +1591,7 @@ const [suggestedJobsForThisSeeker, setSuggestedJobsForThisSeeker] = useState({
 
 const getSuggestedJobsForThisSeeker = async (seekerId) => {
   if (!seekerId) {
-    alert("Seeker ID is required.");
+    console.log("Seeker ID is required.");
     return;
   }
 
@@ -1606,11 +1606,11 @@ const getSuggestedJobsForThisSeeker = async (seekerId) => {
         totalMatches,
       });
     } else {
-      alert(response?.data?.message || "Failed to fetch suggested jobs.");
+      console.log(response?.data?.message || "Failed to fetch suggested jobs.");
     }
   } catch (error) {
     console.error("Error fetching suggested jobs:", error);
-    alert("Internal Server Error");
+    console.log("Internal Server Error");
   }
 };
 
@@ -1619,26 +1619,26 @@ const getSuggestedJobsForThisSeeker = async (seekerId) => {
 const [applicantStatus,setApplicantStatus] = useState(null);
 const getApplicantsStatus = async(id)=>{
    if(!id){
-    alert("Provide AUthority ID")
-  }
+    console.log("Provide AUthority ID")
+  }  
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/status`);
     if(response && response.data.success){
       const data = response.data.data;
       setApplicantStatus(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
 const [applicantStatusWeekly,setApplicantStatusWeekly] = useState(null);
 const getApplicantsStatusWeekly = async(id)=>{
   if(!id){
-    alert("Provide AUthority ID")
+    console.log("Provide AUthority ID")
   }
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/weekly`);
@@ -1646,18 +1646,18 @@ const getApplicantsStatusWeekly = async(id)=>{
       const data = response.data.data;
       setApplicantStatusWeekly(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
 const [applicationCountPerJob,setApplicationCountPerJob] = useState(null);
 const getApplicationCountPerJob = async(id)=>{
 if(!id){
-    alert("Provide AUthority ID")
+    console.log("Provide AUthority ID")
   }
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count`);
@@ -1665,18 +1665,18 @@ if(!id){
       const data = response.data.data;
       setApplicationCountPerJob(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
 const [applicationCountByLocation,setApplicationCountByLocation] = useState(null);
 const getApplicationsByLocations = async(id)=>{
   if(!id){
-    alert("Provide AUthority ID")
+    console.log("Provide AUthority ID")
   }
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/location`);
@@ -1684,18 +1684,18 @@ const getApplicationsByLocations = async(id)=>{
       const data = response.data.data;
       setApplicationCountByLocation(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
 const [applicationCountByRole,setApplicationCountByRole] = useState(null);
 const getApplicationsByRoles = async(id)=>{
   if(!id){
-    alert("Provide AUthority ID")
+    console.log("Provide AUthority ID")
   }
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/role`);
@@ -1703,18 +1703,18 @@ const getApplicationsByRoles = async(id)=>{
       const data = response.data.data;
       setApplicationCountByRole(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
 const [applicationCountByType,setApplicationCountByType] = useState(null);
 const getApplicationsByTypes = async(id)=>{
   if(!id){
-    alert("Provide AUthority ID")
+    console.log("Provide AUthority ID")
   }
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/type`);
@@ -1722,18 +1722,18 @@ const getApplicationsByTypes = async(id)=>{
       const data = response.data.data;
       setApplicationCountByType(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
 const [applicationCountByCategory,setApplicationCountByCategory] = useState(null);
 const getApplicationsByCategory = async(id)=>{
   if(!id){
-    alert("Provide AUthority ID")
+    console.log("Provide AUthority ID")
   }
   try {
     const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/category`);
@@ -1741,11 +1741,11 @@ const getApplicationsByCategory = async(id)=>{
       const data = response.data.data;
       setApplicationCountByCategory(data);
     }else{
-      alert(response.data.message || "Cannot get positive response")
+      console.log(response.data.message || "Cannot get positive response")
     }
     
   } catch (error) {
-    alert("Internal Server Error",error);
+    console.log("Internal Server Error",error);
   }
 }
 
@@ -1757,7 +1757,7 @@ const [allMessages, setAllMessages] = useState([]);
 
 const getMessages = async (sender, receiver) => {
   if (!sender || !receiver) {
-    alert("Sender or receiver not found");
+    console.log("Sender or receiver not found");
     return;
   }
 
@@ -1769,22 +1769,22 @@ const getMessages = async (sender, receiver) => {
       if (messages?.length > 0) {
         setAllMessages(messages);
       } else {
-        alert("No messages found");
+        console.log("No messages found");
         setAllMessages([]);
       }
     } else {
-      alert("Failed to fetch messages");
+      console.log("Failed to fetch messages");
     }
 
   } catch (error) {
     console.error("Error while fetching messages:", error);
-    alert("Something went wrong while fetching the messages.");
+    console.log("Something went wrong while fetching the messages.");
   }
 };
 
 const sendMessage = async (sender, receiver, data) => {
   if (!sender || !receiver || !data) {
-    alert("Sender, receiver, or message content is missing.");
+    console.log("Sender, receiver, or message content is missing.");
     return;
   }
 
@@ -1798,12 +1798,12 @@ const sendMessage = async (sender, receiver, data) => {
     if (response?.data?.success) {
      await getMessages(sender, receiver);
     } else {
-      alert("Message sending failed");
+      console.log("Message sending failed");
     }
 
   } catch (error) {
     console.log("Internal Server Error:", error);
-    alert("Something went wrong while sending the message.");
+    console.log("Something went wrong while sending the message.");
   }
 };
 
@@ -1811,7 +1811,7 @@ const [allPingsForThisUser, setAllPingsForThisUser] = useState(null);
 
 const getAllPingsByUserId = async (receiver) => {
   if (!receiver) {
-    alert("Receiver not found");
+    console.log("Receiver not found");
     return;
   }
 
@@ -1823,16 +1823,16 @@ const getAllPingsByUserId = async (receiver) => {
       if (users?.length > 0) {
         setAllPingsForThisUser(users);
       } else {
-        alert("No users found");
+        console.log("No users found");
         setAllPingsForThisUser(null);
       }
     } else {
-      alert("Failed to fetch users");
+      console.log("Failed to fetch users");
     }
 
   } catch (error) {
     console.error("Error while fetching messages:", error);
-    alert("Something went wrong while fetching the messages.");
+    console.log("Something went wrong while fetching the messages.");
   }
 };
 

@@ -41,7 +41,7 @@ const Profile = () => {
   /* Load applied jobs */
   useEffect(() => {
     if (user_seekerData?._id) {
-      getApplicantBySeekerId(user_seekerData._id);
+      // getApplicantBySeekerId(user_seekerData._id);
     }
   }, [user_seekerData]);
 
@@ -112,7 +112,7 @@ const Profile = () => {
           </div>
 
           {/* Dashboard (your existing component) */}
-          <Dashboard />
+          {/* <Dashboard /> */}
 
           {/* Registration Details */}
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mt-8">

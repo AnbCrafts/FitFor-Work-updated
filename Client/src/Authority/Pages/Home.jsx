@@ -65,8 +65,8 @@ const EmployerHome = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
 
-      {/* ---------------------- EMPLOYER DASHBOARD ---------------------- */}
-      {authData && <Dashboard />}
+      {/* ---- ------------------ EMPLOYER DASHBOARD ---------------------- */}
+      {/* {authData && <Dashboard />} */}
 
       {/* ---------------------- HERO WHEN NO PROFILE ---------------------- */}
       {!authData && (
@@ -111,7 +111,7 @@ const EmployerHome = () => {
               setCurrCategory(e.target.value);
               setSelectedValue("");
             }}
-          >
+          > 
             <option value="">Select Category</option>
             {skillEntries.map(([key]) => (
               <option key={key} value={key}>

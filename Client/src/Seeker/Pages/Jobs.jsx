@@ -9,7 +9,7 @@ import { WorkContext } from "../../ContextAPI/WorkContext";
 import { Link, useParams } from "react-router-dom";
 
 const Jobs = () => {
-  const {
+  const { 
     getUserIdByToken,
     globalId,
     getAllJobsFromDB,
@@ -40,11 +40,16 @@ const Jobs = () => {
   const [currentJobPage, setCurrentJobPage] = useState(1);
   const jobsPerPage = 8;
   const indexOfLastJob = currentJobPage * jobsPerPage;
-  const currentJobs = allJobs.slice(indexOfLastJob - jobsPerPage, indexOfLastJob);
-  const totalJobPages = Math.max(1, Math.ceil(allJobs.length / jobsPerPage));
+  const currentJobs = allJobs?.slice(indexOfLastJob - jobsPerPage, indexOfLastJob);
+  const totalJobPages = Math.max(1, Math.ceil(allJobs?.length / jobsPerPage));
 
   // Mobile filters drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+
+  useEffect(()=>{
+    console.log("Jobs - ",allJobs);
+  },[allJobs]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,7 +83,7 @@ const Jobs = () => {
               <Filters head="Company" options={requirements?.company || []} />
 
               {/* Dynamic rest */}
-              {Object.entries(requirements).map(([k, v]) => {
+              {Object?.entries(requirements || {})?.map(([k, v]) => {
                 if (["category", "location", "company", "ownerIds"].includes(k)) return null;
                 return (
                   <Filters key={k} head={k} options={Array.isArray(v) ? v : []} />
@@ -90,12 +95,12 @@ const Jobs = () => {
           {/* CENTER — JOBS LIST */}
           <main className="col-span-12 lg:col-span-6">
             <div className="flex flex-col gap-6">
-              {currentJobs.length === 0 ? (
+              {currentJobs?.length === 0 ? (
                 <div className="text-center bg-white border border-gray-200 p-6 rounded-xl text-gray-600">
                   No jobs available.
                 </div>
               ) : (
-                currentJobs.map((job, idx) => (
+                currentJobs?.map((job, idx) => (
                   <JobCard key={job?._id ?? idx} job={job} />
                 ))
               )}

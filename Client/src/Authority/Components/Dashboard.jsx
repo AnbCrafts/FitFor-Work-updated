@@ -59,14 +59,14 @@ const Dashboard = () => {
 
     setLoadingCharts(true);
     Promise.allSettled([
-      getApplicantsStatusWeekly(authId),
-      getApplicationsByLocations(authId),
-      getApplicationCountPerJob(authId),
-      getApplicantsStatus(authId),
-      getApplicationsByRoles(authId),
-      getApplicationsByTypes(authId),
-      getApplicationsByCategory(authId),
-    ])
+      // getApplicantsStatusWeekly(authId),
+      // getApplicationsByLocations(authId),
+      // getApplicationCountPerJob(authId),
+      // getApplicantsStatus(authId),
+      // getApplicationsByRoles(authId),
+      // getApplicationsByTypes(authId),
+      // getApplicationsByCategory(authId),
+    ],[hash])
       .finally(() => setLoadingCharts(false));
 
     // fetch matches separately (so we can show partial UI while charts load)

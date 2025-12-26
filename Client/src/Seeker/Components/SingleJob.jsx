@@ -1,4 +1,4 @@
-// SingleJob.jsx (Light SaaS theme - UI only; logic preserved)
+
 import React, { useContext, useEffect, useState } from "react";
 import {
   MoveLeftIcon,
@@ -102,7 +102,7 @@ const SingleJob = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
-      <div className="max-w-[1100px] mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <button

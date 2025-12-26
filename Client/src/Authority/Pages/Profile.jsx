@@ -53,7 +53,7 @@ const Profile = () => {
 
   const confirmLogout = () => {
     resetOnExit();
-    navigate("/");
+    navigate("/"); 
   };
 
   return (
@@ -127,7 +127,7 @@ const Profile = () => {
           </div>
 
           {/* DASHBOARD */}
-          <Dashboard />
+          {/* <Dashboard /> */}
 
           {/* USER PROFILE SECTION */}
           <div className="w-[90%] mx-auto bg-white mt-10 rounded-2xl shadow-md p-10 border border-gray-100">

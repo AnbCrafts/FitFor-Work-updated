@@ -73,7 +73,7 @@ const registerUser = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "User registered successfully",
-            user: {
+            user: { 
                 id: newUser._id,
                 name: newUser.firstName + " " + newUser.lastName,
                 email: newUser.email,
@@ -308,7 +308,7 @@ const getUserDataBySeekerId = async(req,res)=>{
     }
 }
 
-
+ 
 
   
 export { registerUser ,loginUser,getAllUsers,getUserById,removeUserById, blockUserById,getUserDataBySeekerId};
