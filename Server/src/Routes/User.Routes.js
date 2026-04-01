@@ -1,17 +1,60 @@
 import { Router } from "express";
 import upload from "../Middlewares/Multer.Middleware.js";
-import { blockUserById, getAllUsers, getUserById, getUserDataBySeekerId, loginUser, registerUser, removeUserById } from "../Controllers/User.Controllers.js";
-import multer from "multer";
+import { 
+    registerUser, 
+    loginUser, 
+    logoutUser,
 
+    verifyEmail,
+    forgotPassword,
+    resetPassword,
+    getMe,
+    updateMe,
+    deactivateAccount,
+    getAllUsers, 
+    getUserById, 
+    getUserDataBySeekerId, 
+    removeUserById, 
+    blockUserById,
+    changePassword,
+    getUserSessions,
+    getPublicProfile,
+    
+} from "../Controllers/User.Controllers.js";
+import { refreshAccessToken } from "../Controllers/RefreshToken.Controllers.js";
+import { verifyJWT } from "../Middlewares/VerifyJWT.Middleware.js";
+import { populateAdmin } from "../Middlewares/PopulateAdmin.Middleware.js";
+import { checkPermission } from "../Middlewares/CheckPermissions.Middleware.js";
 
 const UserRouter = Router(); 
 
-UserRouter.post('/register/new', upload.single('picture'), registerUser); 
-UserRouter.post('/register/login',loginUser)
-UserRouter.get('/list/all',getAllUsers)
-UserRouter.get('/list/all/:userId',getUserById)
-UserRouter.get('/list/all/seeker/:seekerId',getUserDataBySeekerId)
-UserRouter.delete('/list/all/remove/:userId',removeUserById)
-UserRouter.put('/list/all/:userId/block',blockUserById)
+// --- 1. Authentication & Verification (Public) ---
+UserRouter.post('/auth/signup', upload.single('picture'), registerUser); 
+UserRouter.post('/auth/login', loginUser);
+UserRouter.post('/auth/refresh', refreshAccessToken);
+UserRouter.post('/auth/verify-email', verifyEmail);
+UserRouter.post('/auth/forgot-password', forgotPassword);
+UserRouter.patch('/auth/reset-password', resetPassword);
 
-export default UserRouter; 
+// --- 2. Session Management (Protected) ---
+UserRouter.post('/auth/logout', verifyJWT, logoutUser);
+UserRouter.get('/auth/sessions', verifyJWT, getUserSessions);
+
+// --- 3. Profile Management (Self - Protected) ---
+UserRouter.get('/me', verifyJWT, getMe);
+UserRouter.patch('/update-me', verifyJWT, upload.single('picture'), updateMe);
+UserRouter.patch('/change-password', verifyJWT, changePassword);
+UserRouter.delete('/deactivate', verifyJWT, deactivateAccount);
+
+// --- 4. Public Information (Public) ---
+UserRouter.get('/profile/:username', getPublicProfile);
+
+// --- 5. Admin/Authority Level (Strictly Protected) ---
+// These require a logged-in user, an admin profile, and specific permissions
+UserRouter.get('/admin/all', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), getAllUsers);
+UserRouter.get('/admin/user/:userId', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), getUserById);
+UserRouter.get('/admin/seeker/:seekerId', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), getUserDataBySeekerId);
+UserRouter.delete('/admin/remove/:userId', verifyJWT, populateAdmin, checkPermission("USER_DELETE"), removeUserById);
+UserRouter.patch('/admin/block/:userId', verifyJWT, populateAdmin, checkPermission("USER_BLOCK"), blockUserById);
+
+export default UserRouter;

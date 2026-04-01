@@ -19,6 +19,8 @@ import OllamaRouter from './src/Routes/Ollama.Routes.js';
 import http from 'http';
 import { Server } from 'socket.io';
 import MessageRouter from './src/Routes/Message.Routes.js';
+import cookieParser from 'cookie-parser';
+import AuthRouter from './src/Routes/RefreshToken.Routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,6 +35,7 @@ const port = process.env.PORT || 9000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+app.use(cookieParser());
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -59,12 +62,15 @@ io.on('connection', (socket) => {
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use('/resumes', express.static(path.join(__dirname, 'public/resumes')));
 
+app.use("/api/auth", AuthRouter);
+app.use("/api/admin", AdminRoutes);
+
+
 app.use("/api/user", UserRouter);
 app.use("/api/notification", notificationRouter);
 app.use("/api/applicant", SeekerRouter);
 app.use("/api/authority", AuthorityRouter);
 app.use("/api/job", JobRouter); 
-app.use("/api/admin", AdminRoutes);
 app.use("/api/job-applicant", ApplicantRouter);
 app.use("/api/employee", EmployeeRouter);
 app.use("/api/graph", GraphRouter);

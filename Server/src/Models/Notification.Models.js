@@ -2,82 +2,66 @@ import mongoose from "mongoose";
 
 const NotificationSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    message: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    type: {
-      type: String,
-      lowercase: true,
-      trim: true,
-      enum: ["system", "user", "feedback", "complaint", "announcement"],
-    },
-
-    category: {
-      type: String,
-      trim: true,
-      enum: ["feedback", "complaint", "bug", "suggestion", "other"],
-      default: "other",
-    },
-
-    sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-
-    sendersMail: {
-      type: String,
-      lowercase: true,
-      trim: true,
-    },
-
+    // --- IDENTITY ---
     recipientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
+      ref: "User", // Can be Seeker, Authority, or Admin
+      required: true,
+      index: true,
+    },
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      // Optional: System-generated notifications might not have a senderId
     },
 
-    recipientMail: {
+    // --- UI/UX RENDERING LOGIC ---
+    triggerEvent: {
       type: String,
-      lowercase: true,
-      trim: true,
+      required: true,
+      enum: [
+        "APP_RECEIVED",      // Authority sees new applicant
+        "STATUS_UPDATED",    // Seeker sees (Shortlisted/Rejected)
+        "NEW_MATCHING_JOB",  // AI-driven job alert
+        "SUPPORT_TICKET",    // User sent issue to Admin
+        "TICKET_RESOLVED",   // Admin replied to User
+        "SYSTEM_ALERT"       // General announcement
+      ],
+      index: true,
     },
 
-    isRead: {
-      type: Boolean,
-      default: false,
+    // --- CONTENT ---
+    title: { type: String, required: true, trim: true },
+    message: { type: String, required: true, trim: true },
+
+    // --- DYNAMIC DATA (THE "POWER" FIELD) ---
+    // This allows the Frontend to build custom "Action Buttons"
+    // e.g., if event is APP_RECEIVED, metaData contains { jobId, applicantId }
+    metaData: {
+      jobId: { type: mongoose.Schema.Types.ObjectId, ref: "Job" },
+      applicationId: { type: mongoose.Schema.Types.ObjectId, ref: "Applicant" },
+      externalLink: String,
+      priority: { type: String, enum: ["low", "medium", "high"], default: "low" }
     },
 
+    // --- STATUS & TRACKING ---
+    isRead: { type: Boolean, default: false, index: true },
+    isClicked: { type: Boolean, default: false }, // Tracks if the user actually opened the link
+    
+    // Support Ticket Specifics
     status: {
       type: String,
-      enum: ["pending", "in-review", "resolved", "closed"],
-      default: "pending",
+      enum: ["pending", "in-review", "resolved", "closed", "not-applicable"],
+      default: "not-applicable",
     },
 
-    attachments: {
-      type: [String],
-      default: [],
-    },
-
-    metaData: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {},
-    },
+    attachments: [{ type: String }], // URLs to screenshots for bugs/complaints
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-const Notification =
-  mongoose.models.Notification ||
-  mongoose.model("Notification", NotificationSchema);
+// Performance: Index for fast "Unread" count badge
+NotificationSchema.index({ recipientId: 1, isRead: 1 });
 
+const Notification = mongoose.models.Notification || mongoose.model("Notification", NotificationSchema);
 export default Notification;
