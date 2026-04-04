@@ -6,20 +6,21 @@ import { uploadOnCloudinary } from '../Utils/CloudConfig.Utils.js';
 import fs from 'fs'
 import Job from '../Models/Job.Models.js';
 import Authority from '../Models/Authority.Models.js';
+import mongoose from "mongoose";
 
 
 const createProfile = async (req, res) => {
+    // Helper to handle both JSON arrays and form-data strings
     const toArray = (value) => {
+        if (!value) return [];
         if (Array.isArray(value)) return value;
-        if (typeof value === "string") return value.split(",").map(v => v.trim());
-        return [];
+        return value.split(",").map(v => v.trim());
     };
 
+    const resumePath = req.file?.path;
+
     try {
-
-
         const {
-            userId,
             desiredPost,
             status,
             skills,
@@ -35,201 +36,348 @@ const createProfile = async (req, res) => {
             portfolioLink,
             certifications,
             languagesKnown,
-            achievements,
-            resume
+            achievements
         } = req.body;
 
-        const resumePath = req.file?.path;
-        let uploadedResume = "";
+        // 1. Security: Use req.user._id from verifyJWT instead of req.body
+        const userId = req.user._id;
+
+        // 2. Prevent Duplicates: Check if seeker profile already exists
+        const existingProfile = await Seeker.findOne({ userId });
+        if (existingProfile) {
+            if (resumePath) fs.unlinkSync(resumePath);
+            return res.status(409).json({ 
+                success: false, 
+                message: "Seeker profile already exists for this account. Use update instead." 
+            });
+        }
+
+        // 3. Mandatory Field Check
+        if (!desiredPost || !status || !skills || !qualifications || !preferredLocation) {
+            if (resumePath) fs.unlinkSync(resumePath);
+            return res.status(400).json({ success: false, message: "Missing required profile fields." });
+        }
+
+        // 4. Resume Upload logic
+        let uploadedResume = null;
         if (resumePath) {
-         uploadedResume= await uploadOnCloudinary(resumePath);
+            uploadedResume = await uploadOnCloudinary(resumePath);
             if (!uploadedResume) {
-                return res.status(500).json({ error: "Failed to upload resume to Cloudinary." });
+                return res.status(500).json({ success: false, message: "Failed to upload resume." });
             }
-    
-            fs.unlinkSync(resumePath)
+            fs.unlinkSync(resumePath); // Clean up local file
         }
 
-
-
-        if (!userId || !desiredPost || !status || !skills || skills.length === 0 || !qualifications || !preferredLocation || !preferredJobType || !languagesKnown) {
-            return res.status(400).json({ error: "Missing required fields." });
-        }
-
-        const validUser = await User.findById(userId);
-        if (!validUser) {
-            return res.json({ success: false, message: "You need to create an account first" })
-        }
-
-        const newSeeker = new Seeker({
+        // 5. Create Seeker Document
+        const newSeeker = await Seeker.create({
             userId,
             desiredPost,
             status,
             skills: toArray(skills),
-            experience: Number(experience),
+            experience: Number(experience) || 0,
             qualifications,
-            resume: uploadedResume.secure_url ||"",
+            resume: uploadedResume?.secure_url || "",
             preferredLocation,
             preferredJobType,
             availableFrom,
             currentCompany,
             currentPost,
-            currentCTC: Number(currentCTC),
-            expectedCTC: Number(expectedCTC),
+            currentCTC: Number(currentCTC) || 0,
+            expectedCTC: Number(expectedCTC) || 0,
             portfolioLink,
             certifications: toArray(certifications),
             languagesKnown: toArray(languagesKnown),
             achievements: toArray(achievements),
         });
 
-        await newSeeker.save();
+        // 6. Link Seeker to User Document (Critical for Populate)
+        await User.findByIdAndUpdate(userId, { seekerProfile: newSeeker._id });
 
-
-
-        return res.json({ success: true, message: "Your profile was successfully created", newSeeker })
-
-
-
-
+        return res.status(201).json({ 
+            success: true, 
+            message: "Professional profile initialized successfully", 
+            seeker: newSeeker 
+        });
 
     } catch (error) {
-        console.log(error)
-        return res.json({ success: false, message: "Something error occurred" })
+        if (resumePath && fs.existsSync(resumePath)) fs.unlinkSync(resumePath);
+        console.error("Create Profile Error:", error);
+        return res.status(500).json({ success: false, message: "Internal server error during profile creation" });
     }
-
-}
+};
 const getAllSeekers = async (req, res) => {
     try {
-        const seeker = await Seeker.find({});
-        if (!seeker) {
-            return res.json({ success: false, message: "Cannot find seekers" })
+        // 1. Extract Query Parameters
+        // Usage: /api/seeker?page=1&limit=10&skills=React,Node&location=Delhi&search=Developer
+        let { 
+            page = 1, 
+            limit = 10, 
+            skills, 
+            location, 
+            search, 
+            minCTC, 
+            maxCTC 
+        } = req.query;
 
-        }
-        if (!seeker.length > 0) {
-            return res.json({ success: false, message: "no seekers found" })
+        // Convert types
+        page = parseInt(page);
+        limit = parseInt(limit);
+        const skip = (page - 1) * limit;
 
+        // 2. Build Dynamic Query Object
+        const query = {};
+
+        // Filter by Skills (Matches if seeker has ANY of the provided skills)
+        if (skills) {
+            const skillArray = skills.split(",").map(s => s.trim());
+            query.skills = { $in: skillArray.map(s => new RegExp(s, "i")) };
         }
-        return res.json({ success: true, message: "Found all the Seekers", seeker });
+
+        // Filter by Location (Case-insensitive)
+        if (location) {
+            query.preferredLocation = { $regex: location, $options: "i" };
+        }
+
+        // Fuzzy Search by Post/Title
+        if (search) {
+            query.desiredPost = { $regex: search, $options: "i" };
+        }
+
+        // Filter by Expected CTC Range
+        if (minCTC || maxCTC) {
+            query.expectedCTC = {};
+            if (minCTC) query.expectedCTC.$gte = Number(minCTC);
+            if (maxCTC) query.expectedCTC.$lte = Number(maxCTC);
+        }
+
+        // 3. Execute Query with Population
+        // We populate 'userId' to get the Name and Picture from the User collection
+        const seekers = await Seeker.find(query)
+            .populate("userId", "firstName lastName email picture phone")
+            .sort({ createdAt: -1 }) // Newest first
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        // 4. Get Total Count for Frontend Pagination
+        const totalSeekers = await Seeker.countDocuments(query);
+
+        if (!seekers || seekers.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "No seekers found matching the criteria" 
+            });
+        }
+
+        // 5. Response with MetaData
+        return res.status(200).json({
+            success: true,
+            message: "Seekers retrieved successfully",
+            pagination: {
+                totalSeekers,
+                currentPage: page,
+                totalPages: Math.ceil(totalSeekers / limit),
+                pageSize: seekers.length
+            },
+            seekers
+        });
 
     } catch (error) {
-        console.log(error);
-        return res.json({ success: false, message: "Something error occurred" })
+        console.error("GetAllSeekers Error:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Internal Server Error" 
+        });
     }
-}
+};
 const getSeekerById = async (req, res) => {
     try {
         const { seekerId } = req.params;
-        if (!seekerId) {
-            return res.json({ success: false, message: "Cannot get seeker id" })
+
+        // 1. Validation: Check if the ID is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(seekerId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid Seeker ID format" 
+            });
         }
-        const seeker = await Seeker.findById(seekerId);
+
+        // 2. Fetch Seeker and Populate User Details
+        // We use .populate to "join" the associated User data (name, email, picture)
+        const seeker = await Seeker.findById(seekerId)
+            .populate("userId", "firstName lastName email phone picture address")
+            .lean(); // Faster performance for read-only operations
+
         if (!seeker) {
-            return res.json({ success: false, message: "Cannot find seeker with this id" })
-
+            return res.status(404).json({ 
+                success: false, 
+                message: "No seeker profile found with this ID" 
+            });
         }
 
-        return res.json({ success: true, message: "Found  the Seeker for this id", seeker });
+        // 3. Response
+        return res.status(200).json({
+            success: true,
+            message: "Seeker profile retrieved successfully",
+            seeker
+        });
 
     } catch (error) {
-        console.log(error);
-        return res.json({ success: false, message: "Something error occurred" })
+        console.error(`GetSeekerById Error for ID ${req.params.seekerId}:`, error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Internal Server Error" 
+        });
     }
-}
+};
 const getSeekerByUserId = async (req, res) => {
     try {
         const { userId } = req.params;
-        if (!userId) {
-            return res.json({ success: false, message: "Cannot get userId id" })
+
+        // 1. Validation: Valid MongoDB ID?
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid User ID format" 
+            });
         }
 
+        // 2. Security: Authorization Check
+        // If the requester is NOT an Admin AND is not the owner of the ID, block access.
+        if (req.user.role !== "Admin" && req.user._id.toString() !== userId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Unauthorized: You can only view your own professional profile." 
+            });
+        }
 
-        const seeker = await Seeker.findOne({ userId: userId });
+        // 3. Fetch and Populate
+        // We populate the User object to get Name, Email, etc.
+        const seeker = await Seeker.findOne({ userId })
+            .populate("userId", "firstName lastName email phone picture bio address")
+            .lean();
+
         if (!seeker) {
-            return res.json({ success: false, message: "Cannot find seeker with this id" })
-
+            return res.status(404).json({ 
+                success: false, 
+                message: "Professional profile not found for this user." 
+            });
         }
 
-        return res.json({ success: true, message: "Found  the Seeker for this id", seeker });
+        // 4. Response
+        return res.status(200).json({
+            success: true,
+            message: "Profile retrieved successfully",
+            seeker
+        });
 
     } catch (error) {
-        console.log(error);
-        return res.json({ success: false, message: "Something error occurred" })
-    }
-}
-const removeSeeker = async (req, res) => {
-    try {
-        const { seekerId } = req.params;
-        if (!seekerId) {
-            return res.json({ success: false, message: "Cannot get seeker id" })
-        }
-        const seeker = await Seeker.findByIdAndDelete(seekerId);
-        if (!seeker) {
-            return res.json({ success: false, message: "Cannot delete seeker with this id" })
-        }
-
-        return res.json({ success: true, message: "Deleted  the Seeker for this id" });
-
-    } catch (error) {
-        console.log(error);
-        return res.json({ success: false, message: "Something error occurred" })
-    }
-}
-
-const pushItem = (arr, item) => {
-    if (item && !arr.includes(item)) {
-        arr.push(item);
+        console.error(`GetSeekerByUserId Error:`, error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Internal Server Error" 
+        });
     }
 };
-const getAllFactors = async (req, res) => {
-    try {
-        const seekers = await Seeker.find({});
+const removeSeeker = async (req, res) => {
+    // 1. Start a Session for the Transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-        if (!seekers || seekers.length === 0) {
-            return res.json({ success: false, message: "Cannot get Seekers" });
+    try {
+        const { seekerId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(seekerId)) {
+            return res.status(400).json({ success: false, message: "Invalid Seeker ID" });
         }
 
-        let allSkills = {
-            skills: [],
-            certifications: [],
-            languagesKnown: [],
-            achievements: [],
-            experiences: [],
-            availability: [],
-            status: [],
-            desiredPost: [],
-            qualifications: [],
-            preferredLocation: [],
-            preferredJobType: [],
-            expectedCTC: []
-        };
+        // 2. Find the Seeker first to get the associated userId
+        const seeker = await Seeker.findById(seekerId).session(session);
+        if (!seeker) {
+            await session.abortTransaction();
+            return res.status(404).json({ success: false, message: "Seeker profile not found" });
+        }
 
-        seekers.forEach(seeker => {
-            pushItem(allSkills.experiences, seeker.experience.toString() + " Years");
-            pushItem(allSkills.availability, seeker.availableFrom);
-            pushItem(allSkills.status, seeker.status);
-            pushItem(allSkills.desiredPost, seeker.desiredPost);
-            pushItem(allSkills.qualifications, seeker.qualifications);
-            pushItem(allSkills.preferredLocation, seeker.preferredLocation);
-            pushItem(allSkills.preferredJobType, seeker.preferredJobType);
-            pushItem(allSkills.expectedCTC, seeker.expectedCTC);
+        const userId = seeker.userId;
 
-            seeker.skills?.forEach(item => pushItem(allSkills.skills, item));
-            seeker.achievements?.forEach(item => pushItem(allSkills.achievements, item));
-            seeker.languagesKnown?.forEach(item => pushItem(allSkills.languagesKnown, item));
-            seeker.certifications?.forEach(item => pushItem(allSkills.certifications, item));
+        // 3. Delete the Seeker Profile (Permanent removal as requested)
+        await Seeker.findByIdAndDelete(seekerId).session(session);
+
+        // 4. Soft Delete the User (Change status to "Blocked")
+        // We also clear the seekerProfile reference and the refreshToken
+        await User.findByIdAndUpdate(
+            userId,
+            { 
+                $set: { status: "Blocked" },
+                $unset: { seekerProfile: 1, refreshToken: 1 } 
+            },
+            { session }
+        );
+
+        // 5. Commit all changes
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json({ 
+            success: true, 
+            message: "Seeker profile removed and associated user has been blocked." 
         });
 
-        return res.json({
-            success: true,
-            message: "Got all unique factors",
-            allSkills
-        });
     } catch (error) {
-        console.error("❌ Error in getAllFactors:", error.message);
+        // 6. If anything fails, undo all database changes
+        await session.abortTransaction();
+        session.endSession();
+        
+        console.error("Remove Seeker Transaction Error:", error);
+        return res.status(500).json({ success: false, message: "Failed to process removal" });
+    }
+};
+
+const getAllFactors = async (req, res) => {
+    try {
+        // 1. Use Aggregation Pipeline for maximum speed
+        const factors = await Seeker.aggregate([
+            {
+                $facet: {
+                    "skills": [ { $unwind: "$skills" }, { $group: { _id: "$skills" } } ],
+                    "certifications": [ { $unwind: "$certifications" }, { $group: { _id: "$certifications" } } ],
+                    "languagesKnown": [ { $unwind: "$languagesKnown" }, { $group: { _id: "$languagesKnown" } } ],
+                    "locations": [ { $group: { _id: "$preferredLocation" } } ],
+                    "posts": [ { $group: { _id: "$desiredPost" } } ],
+                    "qualifications": [ { $group: { _id: "$qualifications" } } ],
+                    "jobTypes": [ { $group: { _id: "$preferredJobType" } } ],
+                    "statusList": [ { $group: { _id: "$status" } } ]
+                }
+            },
+            {
+                $project: {
+                    skills: { $map: { input: "$skills", as: "s", in: "$$s._id" } },
+                    certifications: { $map: { input: "$certifications", as: "c", in: "$$c._id" } },
+                    languagesKnown: { $map: { input: "$languagesKnown", as: "l", in: "$$l._id" } },
+                    preferredLocation: { $map: { input: "$locations", as: "loc", in: "$$loc._id" } },
+                    desiredPost: { $map: { input: "$posts", as: "p", in: "$$p._id" } },
+                    qualifications: { $map: { input: "$qualifications", as: "q", in: "$$q._id" } },
+                    preferredJobType: { $map: { input: "$jobTypes", as: "j", in: "$$j._id" } },
+                    status: { $map: { input: "$statusList", as: "st", in: "$$st._id" } }
+                }
+            }
+        ]);
+
+        // 2. Format the response
+        // Since $facet returns an array with one object, we grab index 0
+        const result = factors[0];
+
+        return res.status(200).json({
+            success: true,
+            message: "Unique filter factors retrieved successfully",
+            allFactors: result
+        });
+
+    } catch (error) {
+        console.error("❌ Aggregation Error:", error.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
-            error
         });
     }
 };
@@ -239,78 +387,91 @@ const getCustomSeekers = async (req, res) => {
       skills,
       certifications,
       languagesKnown,
-      achievements,
-      experiences,
+      minExp, // Changed from exact 'experiences'
+      maxExp,
       availability,
       status,
       desiredPost,
       qualifications,
       preferredLocation,
       preferredJobType,
-      expectedCTC
+      minCTC, // Changed from exact 'expectedCTC'
+      maxCTC,
+      page = 1,
+      limit = 10
     } = req.query;
 
     let filterQuery = {};
 
-    // For fields that accept arrays or single values
-    const applyInFilter = (field, value) => {
+    // 1. Array/List Filters (Case-insensitive Partial Match)
+    const applyArrayFilter = (field, value) => {
       if (value) {
-        filterQuery[field] = {
-          $in: Array.isArray(value) ? value : [value]
+        const values = Array.isArray(value) ? value : value.split(",");
+        // Matches if the array contains ANY of these values (case-insensitive)
+        filterQuery[field] = { 
+          $in: values.map(v => new RegExp(v.trim(), "i")) 
         };
       }
     };
 
-    applyInFilter("skills", skills);
-    applyInFilter("certifications", certifications);
-    applyInFilter("languagesKnown", languagesKnown);
-    applyInFilter("achievements", achievements);
+    applyArrayFilter("skills", skills);
+    applyArrayFilter("certifications", certifications);
+    applyArrayFilter("languagesKnown", languagesKnown);
 
-    // For exact numeric match
-    if (experiences !== undefined) {
-      filterQuery.experience = Number(experiences);
+    // 2. Numeric Range Filters (Experience & CTC)
+    if (minExp || maxExp) {
+      filterQuery.experience = {};
+      if (minExp) filterQuery.experience.$gte = Number(minExp);
+      if (maxExp) filterQuery.experience.$lte = Number(maxExp);
     }
 
-    if (expectedCTC !== undefined) {
-      filterQuery.expectedCTC = Number(expectedCTC);
+    if (minCTC || maxCTC) {
+      filterQuery.expectedCTC = {};
+      if (minCTC) filterQuery.expectedCTC.$gte = Number(minCTC);
+      if (maxCTC) filterQuery.expectedCTC.$lte = Number(maxCTC);
     }
 
-    // For exact date match
+    // 3. Availability (Fetch everyone available ON or AFTER this date)
     if (availability) {
-      filterQuery.availableFrom = new Date(availability);
+      filterQuery.availableFrom = { $lte: new Date(availability) };
     }
 
-    // Case-insensitive exact string matches
-    const applyRegexFilter = (field, value) => {
+    // 4. Case-insensitive Partial String Matches (Fuzzy Search)
+    const applyFuzzyFilter = (field, value) => {
       if (value) {
-        filterQuery[field] = {
-          $regex: `^${value}$`, // ^ and $ ensure exact match
-          $options: 'i' // case-insensitive
-        };
+        filterQuery[field] = { $regex: value, $options: 'i' };
       }
     };
 
-    applyRegexFilter("status", status);
-    applyRegexFilter("desiredPost", desiredPost);
-    applyRegexFilter("qualifications", qualifications);
-    applyRegexFilter("preferredLocation", preferredLocation);
-    applyRegexFilter("preferredJobType", preferredJobType);
+    applyFuzzyFilter("status", status);
+    applyFuzzyFilter("desiredPost", desiredPost);
+    applyFuzzyFilter("qualifications", qualifications);
+    applyFuzzyFilter("preferredLocation", preferredLocation);
+    applyFuzzyFilter("preferredJobType", preferredJobType);
 
-    const seekers = await Seeker.find(filterQuery);
+    // 5. Execute with Pagination & Population
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const seekers = await Seeker.find(filterQuery)
+      .populate("userId", "firstName lastName email picture") // Join user data
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await Seeker.countDocuments(filterQuery);
 
     return res.status(200).json({
       success: true,
-      message: "Filtered seekers fetched successfully.",
+      count: seekers.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
       seekers
     });
 
   } catch (error) {
     console.error("❌ Error in getCustomSeekers:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error
-    });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -321,46 +482,101 @@ const getMatchingJobs = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    if (!seekerId) {
-      return res.status(400).json({ success: false, message: "Seeker ID is required" });
-    }
-
-    const seeker = await Seeker.findById(seekerId);
+    // 1. Fetch Seeker Skills
+    const seeker = await Seeker.findById(seekerId).select("skills experience expectedCTC");
     if (!seeker) {
-      return res.status(404).json({ success: false, message: "Seeker not found" });
+        return res.status(404).json({ success: false, message: "Seeker not found" });
     }
 
-    const seekerSkills = seeker.skills?.map(skill => skill.trim()) || [];
+    const seekerSkills = seeker.skills || [];
     if (seekerSkills.length === 0) {
-      return res.status(404).json({ success: false, message: "No skills found for this seeker" });
+        return res.status(400).json({ success: false, message: "Add skills to your profile to see matches" });
     }
 
-    // Get total count first
-    const totalMatches = await Job.countDocuments({
-      skillsRequired: { $in: seekerSkills }
-    });
+    // 2. Aggregation Pipeline for Smart Matching
+    const jobs = await Job.aggregate([
+      {
+        // Filter jobs that have AT LEAST one matching skill
+        $match: {
+          skillsRequired: { $in: seekerSkills },
+          status: "Active" // Ensure we don't recommend closed jobs
+        }
+      },
+      {
+        // Add a "matchCount" field based on how many skills intersect
+        $addFields: {
+          matchCount: {
+            $size: { $setIntersection: ["$skillsRequired", seekerSkills] }
+          }
+        }
+      },
+      {
+        // Optional: Smart filtering by Experience
+        // Boost jobs where seeker's exp is within the required range
+        $addFields: {
+          isExpMatch: { 
+            $cond: { 
+                if: { $lte: ["$experienceRequired", seeker.experience] }, 
+                then: 2, 
+                else: 0 
+            } 
+          }
+        }
+      },
+      {
+        // Calculate Total Score (Skills weight + Experience weight)
+        $addFields: {
+          totalScore: { $add: ["$matchCount", "$isExpMatch"] }
+        }
+      },
+      { $sort: { totalScore: -1, createdAt: -1 } }, // Best matches + Newest first
+      { $skip: skip },
+      { $limit: limit },
+      {
+        // Join with Company Data
+        $lookup: {
+          from: "companies", // Adjust to your actual company collection name
+          localField: "companyId",
+          foreignField: "_id",
+          as: "companyDetails"
+        }
+      },
+      { $unwind: "$companyDetails" },
+      {
+        // Clean up output
+        $project: {
+          title: 1,
+          location: 1,
+          salary: 1,
+          skillsRequired: 1,
+          matchCount: 1,
+          totalScore: 1,
+          "companyDetails.companyName": 1,
+          "companyDetails.companyLogo": 1
+        }
+      }
+    ]);
 
-    // Fetch paginated jobs
-    const paginatedJobs = await Job.find({
-      skillsRequired: { $in: seekerSkills }
-    })
-      .skip(skip)
-      .limit(limit)
-      .select('_id title description location type salary experienceRequired skillsRequired companyId') // Optional: keep only public fields
-      .populate('companyId', 'companyName companyLogo'); // Optional: populate company info
+    // 3. Get total for pagination
+    const totalMatches = await Job.countDocuments({
+      skillsRequired: { $in: seekerSkills },
+      status: "Active"
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Matching jobs fetched successfully",
-      totalMatches,
-      currentPage: page,
-      totalPages: Math.ceil(totalMatches / limit),
-      jobs: paginatedJobs,
+      message: "Personalized matching jobs found",
+      pagination: {
+        totalMatches,
+        currentPage: page,
+        totalPages: Math.ceil(totalMatches / limit)
+      },
+      jobs
     });
 
   } catch (error) {
-    console.error("Error in getMatchingJobs:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+    console.error("Match Error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -413,7 +629,7 @@ const getWantedAuthorities = async (req, res) => {
     console.error("Error in getWantedAuthorities:", error);
     return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
-};
+}; // not functional
 
 const editProfile = async(req,res)=>{
   try {
@@ -451,140 +667,300 @@ const editProfile = async(req,res)=>{
     });
   }
 }
-
-
 const getUserDashboardData = async (req, res) => {
   try {
     const { seekerId } = req.params;
-    if (!seekerId) return res.json({ success: false, message: "Cannot get seeker id" });
 
+    if (!mongoose.Types.ObjectId.isValid(seekerId)) {
+        return res.status(400).json({ success: false, message: "Invalid Seeker ID" });
+    }
+
+    // 1. Fetch Seeker and basic stats in ONE lean call
+    // We only populate essential info for the dashboard view
     const seeker = await Seeker.findById(seekerId)
-      .populate("appliedFor")
-      .populate("savedJobs")
-      .populate("rejectedApplications")
-      .populate("offeredJobs")
+      .select("skills desiredPost expectedCTC qualifications preferredLocation preferredJobType status appliedFor savedJobs rejectedApplications offeredJobs")
+      .populate({
+          path: "appliedFor",
+          options: { limit: 5, sort: { createdAt: -1 } }, // Only get recent 5 for dashboard
+          select: "title location salaryRange companyId"
+      })
       .lean();
 
-    if (!seeker) return res.json({ success: false, message: "Cannot find seeker with this id" });
+    if (!seeker) {
+      return res.status(404).json({ success: false, message: "Seeker not found" });
+    }
 
-    // Basic arrays
-    const skills = seeker.skills || [];
-    const applied = seeker.appliedFor || [];
-    const saved = seeker.savedJobs || [];
-    const rejected = seeker.rejectedApplications || [];
-    const offered = seeker.offeredJobs || [];
+    // 2. Build Intelligent Recommendation Query
+    // We use $or instead of a strict $and to ensure the dashboard isn't EMPTY 
+    // if the user has very specific preferences.
+    const recommendationCriteria = [
+        { skillsRequired: { $in: seeker.skills || [] } },
+        { title: { $regex: seeker.desiredPost || "", $options: "i" } },
+        { location: { $regex: seeker.preferredLocation || "", $options: "i" } }
+    ];
 
-    // Preference (added skills)
-    const preference = {
-      post: seeker.desiredPost || "",
-      ctc: seeker.expectedCTC || 0,
-      qualifications: seeker.qualifications || "",
-      location: seeker.preferredLocation || "",
-      type: seeker.preferredJobType || "",
-      status: seeker.status || "Fresher",
-      skills: skills // <-- new field
+    const recommendedJobs = await Job.find({
+        $or: recommendationCriteria,
+        status: "Active",
+        _id: { $nin: seeker.appliedFor.map(job => job._id) } // Don't recommend jobs already applied to
+    })
+    .limit(10) // Dashboard only needs a "Sneak Peek"
+    .select("title companyId location salaryRange jobType createdAt")
+    .populate("companyId", "companyName companyLogo")
+    .sort({ createdAt: -1 })
+    .lean();
+
+    // 3. Construct Analytics Summary
+    const stats = {
+        totalApplied: seeker.appliedFor?.length || 0,
+        totalSaved: seeker.savedJobs?.length || 0,
+        totalRejected: seeker.rejectedApplications?.length || 0,
+        totalOffered: seeker.offeredJobs?.length || 0,
+        profileCompleteness: calculateProfileScore(seeker) // Optional helper function
     };
 
-    // Build flexible conditions (use regex for strings; $in for arrays)
-    const conditions = [];
-
-    // job role / post (try jobRole and post fields)
-    if (preference.post) {
-      const r = { $regex: preference.post, $options: "i" };
-      conditions.push({ jobRole: r });
-      conditions.push({ title: r });
-      // optional: also check `post` if you sometimes used that name
-      conditions.push({ post: r });
-    }
-
-    // qualifications (string)
-    if (preference.qualifications) {
-      conditions.push({ qualifications: { $regex: preference.qualifications, $options: "i" } });
-    }
-
-    // location
-    if (preference.location) {
-      conditions.push({ location: { $regex: preference.location, $options: "i" } });
-    }
-
-    // job type (enum Job.jobType)
-    if (preference.type) {
-      conditions.push({ jobType: preference.type }); // exact match to enum
-      conditions.push({ type: preference.type }); // fallback if different field name used
-    }
-
-    // skills matching: at least one skill in common (you can change to $all if you want all skills)
-    if (Array.isArray(preference.skills) && preference.skills.length > 0) {
-      conditions.push({ skillsRequired: { $in: preference.skills } });
-    }
-
-    // experience / status: Job.experienceRequired is a String in your schema.
-    // For "Fresher" seekers match jobs where experienceRequired looks like fresher/0 or is empty.
-    if (preference.status === "Fresher") {
-      conditions.push({
-        $or: [
-          { experienceRequired: { $regex: /fresher|entry|0|0-1|0-2/i } },
-          { experienceRequired: { $exists: false } },
-          { experienceRequired: "" }
-        ]
-      });
-    } else {
-      // For experienced seekers we avoid filtering out jobs that explicitly require "Fresher"
-      // (i.e. we only exclude jobs explicitly marked as "Fresher" if you want to)
-      // Here we'll just NOT add any strict experience filter; you can make it stricter if you store numeric ranges.
-    }
-
-    // salary/ctc: salaryRange is a string in Job schema.
-    // Numeric comparison is unreliable for string ranges — we do a best-effort regex check
-    // but strongly recommend storing numeric minSalary / maxSalary fields for accurate filtering.
-    if (preference.ctc && typeof preference.ctc === "number" && preference.ctc > 0) {
-      // try to match salary strings that contain the expected number, or simple comparators
-      // This is a heuristic — not guaranteed to work for all salary formats.
-      const salaryRegex = new RegExp(preference.ctc.toString());
-      conditions.push({
-        $or: [
-          { salaryRange: { $regex: salaryRegex } },
-          { salaryRange: { $regex: /lpa|lakhs|per annum|annum/i } }, // broad fallback so we don't accidentally exclude everything
-        ]
-      });
-      // NOTE: best fix: migrate schema to numeric salaryMin / salaryMax fields
-    }
-
-    // Compose final query
-    const query = conditions.length ? { $and: conditions } : {};
-
-    // Debug logs (remove in production)
-    // console.log("Preference:", preference);
-    // console.log("Query:", JSON.stringify(query, null, 2));
-    const matchCount = await Job.countDocuments(query);
-    // console.log("Matching jobs count:", matchCount);
-
-    // Fetch jobs (with limit)
-    const jobs = await Job.find(query).limit(200).lean();
-
-    const userDashboard = {
-      skills,
-      applied,
-      saved,
-      rejected,
-      offered,
-      jobs,
-      preference
-    };
-
-    return res.json({
+    return res.status(200).json({
       success: true,
-      message: "Found seeker and dashboard data",
-      userDashboard
+      message: "Dashboard data retrieved",
+      dashboard: {
+        stats,
+        recentApplications: seeker.appliedFor,
+        recommendedJobs,
+        preferences: {
+            post: seeker.desiredPost,
+            location: seeker.preferredLocation,
+            expectedCTC: seeker.expectedCTC
+        }
+      }
     });
+
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message
-    });
+    console.error("Dashboard Error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
+};
+
+// Helper to encourage user to fill profile
+function calculateProfileScore(seeker) {
+    let score = 0;
+    if (seeker.skills?.length > 3) score += 40;
+    if (seeker.resume) score += 30;
+    if (seeker.experience > 0) score += 30;
+    return score;
+}
+
+const toggleSaveJob = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(jobId)) {
+            return res.status(400).json({ success: false, message: "Invalid Job ID" });
+        }
+
+        // 1. Find the seeker profile associated with this user
+        const seeker = await Seeker.findOne({ userId });
+        if (!seeker) {
+            return res.status(404).json({ success: false, message: "Seeker profile not found" });
+        }
+
+        // 2. Check if job is already saved
+        const isSaved = seeker.savedJobs.includes(jobId);
+
+        // 3. Toggle Logic
+        const update = isSaved 
+            ? { $pull: { savedJobs: jobId } } 
+            : { $addToSet: { savedJobs: jobId } };
+
+        await Seeker.findByIdAndUpdate(seeker._id, update);
+
+        return res.status(200).json({
+            success: true,
+            message: isSaved ? "Job removed from saved list" : "Job saved successfully",
+            isSaved: !isSaved
+        });
+
+    } catch (error) {
+        console.error("Toggle Save Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+const getAppliedApplications = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        // 1. Find the seeker and populate the 'appliedFor' list
+        // Note: This assumes 'appliedFor' stores Application IDs (recommended)
+        // or Job IDs with a secondary lookup.
+        const seeker = await Seeker.findOne({ userId })
+            .populate({
+                path: 'appliedFor',
+                populate: {
+                    path: 'jobId',
+                    select: 'title location salaryRange companyId',
+                    populate: { path: 'companyId', select: 'companyName companyLogo' }
+                }
+            })
+            .lean();
+
+        if (!seeker) {
+            return res.status(404).json({ success: false, message: "Seeker not found" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Applied applications fetched",
+            applications: seeker.appliedFor || []
+        });
+
+    } catch (error) {
+        console.error("Get Applications Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+const updateResume = async (req, res) => {
+    const localFilePath = req.file?.path;
+
+    if (!localFilePath) {
+        return res.status(400).json({ success: false, message: "No resume file provided" });
+    }
+
+    try {
+        const uploadedResume = await uploadOnCloudinary(localFilePath);
+        
+        if (!uploadedResume) {
+            return res.status(500).json({ success: false, message: "Cloudinary upload failed" });
+        }
+
+        const seeker = await Seeker.findOneAndUpdate(
+            { userId: req.user._id },
+            { $set: { resume: uploadedResume.secure_url } },
+            { new: true }
+        );
+
+        // Cleanup local file
+        if (fs.existsSync(localFilePath)) fs.unlinkSync(localFilePath);
+
+        return res.status(200).json({
+            success: true,
+            message: "Resume updated successfully",
+            resumeUrl: seeker.resume
+        });
+
+    } catch (error) {
+        if (localFilePath && fs.existsSync(localFilePath)) fs.unlinkSync(localFilePath);
+        return res.status(500).json({ success: false, message: "Resume update failed" });
+    }
+};
+
+// import { GoogleGenerativeAI } from "@google/generative-ai";
+// import axios from "axios";
+// import pdf from "pdf-parse";
+
+// const analyzeResumeAI = async (req, res) => {
+//     try {
+//         const seeker = await Seeker.findOne({ userId: req.user._id });
+//         if (!seeker || !seeker.resume) {
+//             return res.status(404).json({ success: false, message: "Resume not found. Please upload one first." });
+//         }
+
+//         // 1. Download Resume from Cloudinary
+//         const response = await axios.get(seeker.resume, { responseType: 'arraybuffer' });
+//         const data = await pdf(response.data);
+//         const resumeText = data.text;
+
+//         // 2. Initialize Gemini
+//         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+//         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+//         const prompt = `
+//             Analyze the following resume text and return a JSON object with:
+//             1. 'topSkills': Array of top 5 professional skills found.
+//             2. 'suggestedRoles': Top 3 job titles this person is fit for.
+//             3. 'improvements': 2 brief tips to improve this resume for ATS.
+//             Resume Text: ${resumeText.substring(0, 5000)}
+//         `;
+
+//         const result = await model.generateContent(prompt);
+//         const aiResponse = JSON.parse(result.response.text().replace(/```json|```/g, ""));
+
+//         return res.status(200).json({
+//             success: true,
+//             analysis: aiResponse
+//         });
+
+//     } catch (error) {
+//         console.error("AI Analysis Error:", error);
+//         return res.status(500).json({ success: false, message: "AI Analysis failed" });
+//     }
+// };
+
+const getApplicationDetails = async (req, res) => {
+    try {
+        const { id } = req.params; // This is the Application ID
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid Application ID" });
+        }
+
+        // 1. Fetch specific application and deep populate
+        const application = await Application.findById(id)
+            .populate({
+                path: 'jobId',
+                select: 'title location salaryRange description skillsRequired companyId',
+                populate: { path: 'companyId', select: 'companyName companyLogo companyWebsite' }
+            })
+            .lean();
+
+        if (!application) {
+            return res.status(404).json({ success: false, message: "Application details not found" });
+        }
+
+        // 2. Security: Ensure this application belongs to the logged-in seeker
+        // (Assuming you have a seekerId field in your Application model)
+        // if (application.seekerId.toString() !== req.user.seekerProfile.toString()) {
+        //     return res.status(403).json({ success: false, message: "Unauthorized access" });
+        // }
+
+        return res.status(200).json({
+            success: true,
+            message: "Detailed application tracking fetched",
+            application
+        });
+
+    } catch (error) {
+        console.error("Get Application Detail Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};
+const getSavedJobs = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const seeker = await Seeker.findOne({ userId: req.user._id })
+            .populate({
+                path: 'savedJobs',
+                options: { skip, limit, sort: { createdAt: -1 } },
+                populate: { path: 'companyId', select: 'companyName companyLogo' }
+            })
+            .lean();
+
+        if (!seeker) {
+            return res.status(404).json({ success: false, message: "Seeker not found" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            count: seeker.savedJobs.length,
+            savedJobs: seeker.savedJobs
+        });
+
+    } catch (error) {
+        console.error("Get Saved Jobs Error:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
 };
 
 
@@ -596,7 +972,4 @@ const getUserDashboardData = async (req, res) => {
 
 
 
-
-
-
-export {editProfile, createProfile, getAllSeekers, getSeekerById, removeSeeker, getSeekerByUserId, getAllFactors,getCustomSeekers,getMatchingJobs,getWantedAuthorities,getUserDashboardData }
+export {editProfile, createProfile, getAllSeekers, getSeekerById, removeSeeker, getSeekerByUserId, getAllFactors,getCustomSeekers,getMatchingJobs,getWantedAuthorities,getUserDashboardData,toggleSaveJob,getAppliedApplications,updateResume,getApplicationDetails,getSavedJobs }

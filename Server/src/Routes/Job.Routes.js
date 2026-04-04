@@ -15,5 +15,5 @@ JobRouter.get("/list/all/authority/:AuthId",getAllJobsByAuthorityId)
 JobRouter.post("/:jobId/applicant/:seekerId/apply",applyForJob)   
 JobRouter.put("/:jobId/applicant/:seekerId/save",saveJob)   
 JobRouter.get("/applicant/:seekerId/saved-list/all",getSavedJobBySeekerId)  
- 
+  
 export default JobRouter 

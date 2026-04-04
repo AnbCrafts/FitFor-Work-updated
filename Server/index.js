@@ -64,14 +64,14 @@ app.use('/resumes', express.static(path.join(__dirname, 'public/resumes')));
 
 app.use("/api/auth", AuthRouter);
 app.use("/api/admin", AdminRoutes);
-
-
 app.use("/api/user", UserRouter);
-app.use("/api/notification", notificationRouter);
 app.use("/api/applicant", SeekerRouter);
 app.use("/api/authority", AuthorityRouter);
 app.use("/api/job", JobRouter); 
+
+
 app.use("/api/job-applicant", ApplicantRouter);
+app.use("/api/notification", notificationRouter);
 app.use("/api/employee", EmployeeRouter);
 app.use("/api/graph", GraphRouter);
 app.use("/api/dashboard", DashboardRouter);

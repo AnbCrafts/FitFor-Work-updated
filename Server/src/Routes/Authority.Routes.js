@@ -15,4 +15,4 @@ AuthorityRouter.put('/profile/edit/:authId',editProfile)
 AuthorityRouter.put('/list/all/update-skills',updateAuthoritiesPreferredSkills) 
 AuthorityRouter.get('/all/names',getAllCompanyNames) 
 
-export default AuthorityRouter;
+export default AuthorityRouter; 
