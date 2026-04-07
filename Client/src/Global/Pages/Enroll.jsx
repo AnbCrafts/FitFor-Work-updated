@@ -11,13 +11,16 @@ import {
   Building2, 
   UploadCloud, 
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  ChevronRight,
+  ChevronLeft,
+  CheckCircle2
 } from "lucide-react";
 
-// --- Reusable UI Components ---
+// --- 1. Reusable UI Components (Restored Full Logic) ---
 
 const InputField = ({ label, type = "text", value, onChange, icon: Icon, placeholder }) => (
-  <div className="space-y-1.5 ">
+  <div className="space-y-1.5">
     <label className="text-sm font-medium text-slate-700">{label}</label>
     <div className="relative group">
       {Icon && (
@@ -31,7 +34,7 @@ const InputField = ({ label, type = "text", value, onChange, icon: Icon, placeho
         onChange={(e) => onChange(e.target.value)}
         className={`w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-lg shadow-sm 
                    focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
-                   transition-all duration-200 pl-10 py-2.5 ${Icon ? "pl-10 pr-4" : "px-4"}`}
+                   transition-all duration-200 py-2.5 ${Icon ? "pl-10 pr-4" : "px-4"}`}
         placeholder={placeholder}
       />
     </div>
@@ -95,25 +98,20 @@ const RoleCard = ({ selected, type, onClick, icon: Icon, title }) => (
   </div>
 );
 
-// --- Main Component ---
+// --- 2. Main Component ---
 
 const Enroll = () => {
   const [existing, setExisting] = useState(true);
   const [img, setImg] = useState(null);
   const [adminLogin, setAdminLogin] = useState(false);
+  const [step, setStep] = useState(1); // The "Drawer" state
 
   const {
     registerUser,
-    registerIndicator,
-    setRegisterIndicator,
-    userId,   
-    setAuthorityId,
-    setAuthorityToken,
-    setSeekerToken,
-    setSeekerId,
-    userToken,
+    isLoggedIn,
+    user,
     loginAdmin,
-    securePath
+    authError
   } = useContext(WorkContext);
 
   const navigate = useNavigate();
@@ -125,22 +123,24 @@ const Enroll = () => {
     username: "",
     email: "",
     password: "",
-    role: "Seeker", // Default role
+    role: "Seeker", 
     address: "",
     picture: "",
-  });
-
-  const [loginUserData, setLoginUserData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    role: "",
   });
 
   const [adminForm, setAdminForm] = useState({
     adminName:"",
     secretCode:""
   });
+
+  // Handle Dynamic Redirects after Login/Registration
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      const userRole = user.role?.toLowerCase();
+      const userName = user.username;
+      navigate(`/auth/${userRole}/${userName}`);
+    }
+  }, [isLoggedIn, user, navigate]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -150,60 +150,32 @@ const Enroll = () => {
     }
   };
 
-  const submitHandler = (e) => {
+  const nextStep = () => setStep((prev) => prev + 1);
+  const prevStep = () => setStep((prev) => prev - 1);
+
+  const submitHandler = async (e) => {
     e.preventDefault();
     if (!existing) {
       const formData = new FormData();
       Object.keys(userData).forEach(key => {
         if(userData[key]) formData.append(key, userData[key]);
       });
-      registerUser(formData, "new");
+      await registerUser(formData, "signup");
     } else {
       const loginData = {
-        username: loginUserData.username,
-        email: loginUserData.email,
-        password: loginUserData.password,
-        role: loginUserData.role || userData.role, 
+        username: userData.username,
+        email: userData.email,
+        password: userData.password,
+        role : userData.role
       };
-      registerUser(loginData, "login");
+      await registerUser(loginData, "login");
     }
-  };
+  }; 
 
   const loginAdminHandler = async(e) => {
     e.preventDefault();
     await loginAdmin(adminForm);
   };
-
-  useEffect(() => {
-    if (registerIndicator) {
-      if (userData.role === "Seeker" || loginUserData.role === "Seeker") {
-        setSeekerToken(userToken);
-        setSeekerId(userId);
-      } else if (
-        userData.role === "Authority" ||
-        loginUserData.role === "Authority"
-      ) {
-        setAuthorityId(userId);
-        setAuthorityToken(userToken);
-      }
-
-      setUserData({
-        firstName: "", lastName: "", phone: "", username: "",
-        email: "", password: "", role: "Seeker", picture: "", address: "",
-      });
-      setImg(null);
-      setRegisterIndicator(false);
-    }
-  }, [registerIndicator, userData.role, userId, userToken, securePath]);
-
-  useEffect(() => {
-    setLoginUserData({
-      username: userData.username,
-      email: userData.email,
-      password: userData.password,
-      role: userData.role,
-    });
-  }, [userData]);
 
   return (
     <div className="w-full min-h-screen flex bg-slate-50 font-sans">
@@ -212,7 +184,6 @@ const Enroll = () => {
       <div className="hidden md:flex flex-col justify-between p-12 w-[45%] lg:w-[40%] 
                       bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 relative overflow-hidden">
         
-        {/* Background Shapes */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute w-96 h-96 bg-white/10 rounded-full blur-3xl -top-20 -left-20"></div>
           <div className="absolute w-80 h-80 bg-purple-400/20 rounded-full blur-3xl bottom-10 right-10"></div>
@@ -234,7 +205,7 @@ const Enroll = () => {
         </div>
 
         <div className="relative z-10 text-indigo-200 text-sm">
-          © 2024 FitForWork Inc. All rights reserved.
+          © 2026 FitForWork Inc. All rights reserved.
         </div>
       </div>
 
@@ -243,7 +214,6 @@ const Enroll = () => {
         
         <div className="w-full max-w-md space-y-8">
           
-          {/* Header */}
           <div className="text-center">
             <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
               {adminLogin ? "Admin Access" : (existing ? "Welcome Back" : "Create Account")}
@@ -251,142 +221,148 @@ const Enroll = () => {
             <p className="text-slate-500 mt-2">
               {adminLogin 
                 ? "Enter your secure credentials." 
-                : (existing ? "Please enter your details to sign in." : "Get started with your free account.")}
+                : (existing ? "Please enter your details to sign in." : `Step ${step} of 3: Professional Details`)}
             </p>
+            {authError && <p className="text-red-500 text-sm mt-3 font-medium bg-red-50 py-2 rounded-lg">{authError}</p>}
           </div>
 
-          {/* --- ADMIN FORM --- */}
-          {adminLogin ? (
-            <form onSubmit={loginAdminHandler} className="space-y-6">
-              <InputField
-                label="Admin Identifier"
-                icon={ShieldCheck}
-                value={adminForm.adminName}
-                onChange={(v) => setAdminForm({ ...adminForm, adminName: v })}
-                placeholder="Admin ID"
-              />
-              <InputField
-                label="Secret Key"
-                type="password"
-                icon={Lock}
-                value={adminForm.secretCode}
-                onChange={(v) => setAdminForm({ ...adminForm, secretCode: v })}
-                placeholder="••••••••"
-              />
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
-              >
-                Access Dashboard <ArrowRight size={18} />
-              </button>
-            </form>
-          ) : (
-            /* --- USER FORM --- */
-            <form onSubmit={submitHandler} className="space-y-5">
-              
-              {/* Role Selection (Only for Registration) */}
-              {!existing && (
-                <div className="flex gap-4 mb-6">
-                  <RoleCard 
-                    title="Job Seeker" 
-                    type="Seeker" 
-                    icon={User} 
-                    selected={userData.role} 
-                    onClick={(role) => setUserData({ ...userData, role })} 
-                  />
-                  <RoleCard 
-                    title="Employer" 
-                    type="Authority" 
-                    icon={Building2} 
-                    selected={userData.role} 
-                    onClick={(role) => setUserData({ ...userData, role })} 
-                  />
+          {/* Progress Bar (Restored Visual) */}
+          {!existing && !adminLogin && (
+            <div className="flex items-center justify-between mb-4 px-2">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className="flex flex-col items-center flex-1">
+                  <div className={`h-1.5 w-full rounded-full transition-all duration-500 ${step >= s ? "bg-indigo-600" : "bg-slate-200"}`}></div>
                 </div>
-              )}
-
-              {/* Registration Specific Fields */}
-              {!existing && (
-                <div className="grid grid-cols-2 gap-4">
-                  <InputField
-                    label="First Name"
-                    placeholder="John"
-                    value={userData.firstName}
-                    onChange={(v) => setUserData({ ...userData, firstName: v })}
-                  />
-                  <InputField
-                    label="Last Name"
-                    placeholder="Doe"
-                    value={userData.lastName}
-                    onChange={(v) => setUserData({ ...userData, lastName: v })}
-                  />
-                </div>
-              )}
-
-              {/* Common Fields */}
-              <InputField
-                label="Username"
-                icon={User}
-                placeholder="johndoe123"
-                value={userData.username}
-                onChange={(v) => setUserData({ ...userData, username: v })}
-              />
-
-              <InputField
-                label="Email Address"
-                type="email"
-                icon={Mail}
-                placeholder="john@example.com"
-                value={userData.email}
-                onChange={(v) => setUserData({ ...userData, email: v })}
-              />
-
-              <InputField
-                label="Password"
-                type="password"
-                icon={Lock}
-                placeholder="••••••••"
-                value={userData.password}
-                onChange={(v) => setUserData({ ...userData, password: v })}
-              />
-
-              {/* More Registration Fields */}
-              {!existing && (
-                <>
-                  <InputField
-                    label="Phone Number"
-                    icon={Phone}
-                    placeholder="+1 (555) 000-0000"
-                    value={userData.phone}
-                    onChange={(v) => setUserData({ ...userData, phone: v })}
-                  />
-                  <TextareaField
-                    label="Address"
-                    icon={MapPin}
-                    value={userData.address}
-                    onChange={(v) => setUserData({ ...userData, address: v })}
-                  />
-                  <ImageUpload img={img} handleImageChange={handleImageChange} />
-                </>
-              )}
-
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all mt-4"
-              >
-                {existing ? "Sign In" : "Create Account"}
-              </button>
-            </form>
+              ))}
+            </div>
           )}
 
-          {/* --- FOOTER LINKS --- */}
-          <div className="space-y-4 pt-4 border-t border-slate-100">
-            {/* Toggle Login/Register */}
+          {/* --- MAIN FORM --- */}
+          <form onSubmit={submitHandler} className="space-y-5">
+            
+            {adminLogin ? (
+              /* --- 1. ADMIN DRAWER --- */
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <InputField
+                  label="Admin Identifier"
+                  icon={ShieldCheck}
+                  value={adminForm.adminName}
+                  onChange={(v) => setAdminForm({ ...adminForm, adminName: v })}
+                  placeholder="Admin ID"
+                />
+                <InputField
+                  label="Secret Key"
+                  type="password"
+                  icon={Lock}
+                  value={adminForm.secretCode}
+                  onChange={(v) => setAdminForm({ ...adminForm, secretCode: v })}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
+                >
+                  Access Dashboard <ArrowRight size={18} />
+                </button>
+              </div>
+            ) : existing ? (
+              /* --- 2. LOGIN DRAWER --- */
+              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <InputField
+                  label="Username / Email"
+                  icon={User}
+                  placeholder="johndoe123"
+                  value={userData.username}
+                  onChange={(v) => setUserData({ ...userData, username: v })}
+                />
+                <InputField
+                  label="Password"
+                  type="password"
+                  icon={Lock}
+                  placeholder="••••••••"
+                  value={userData.password}
+                  onChange={(v) => setUserData({ ...userData, password: v })}
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all mt-4"
+                >
+                  Sign In
+                </button>
+              </div>
+            ) : (
+              /* --- 3. MULTI-STEP REGISTRATION DRAWERS --- */
+              <div className="min-h-[380px] flex flex-col justify-between">
+                
+                {step === 1 && (
+                  <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="flex gap-4 mb-6">
+                      <RoleCard title="Job Seeker" type="Seeker" icon={User} selected={userData.role} onClick={(role) => setUserData({ ...userData, role })} />
+                      <RoleCard title="Employer" type="Authority" icon={Building2} selected={userData.role} onClick={(role) => setUserData({ ...userData, role })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <InputField label="First Name" placeholder="John" value={userData.firstName} onChange={(v) => setUserData({ ...userData, firstName: v })} />
+                      <InputField label="Last Name" placeholder="Doe" value={userData.lastName} onChange={(v) => setUserData({ ...userData, lastName: v })} />
+                    </div>
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <InputField label="Username" icon={User} placeholder="johndoe123" value={userData.username} onChange={(v) => setUserData({ ...userData, username: v })} />
+                    <InputField label="Email Address" type="email" icon={Mail} placeholder="john@example.com" value={userData.email} onChange={(v) => setUserData({ ...userData, email: v })} />
+                    <InputField label="Password" type="password" icon={Lock} placeholder="••••••••" value={userData.password} onChange={(v) => setUserData({ ...userData, password: v })} />
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <InputField label="Phone Number" icon={Phone} placeholder="+1 (555) 000-0000" value={userData.phone} onChange={(v) => setUserData({ ...userData, phone: v })} />
+                    <TextareaField label="Address" icon={MapPin} value={userData.address} onChange={(v) => setUserData({ ...userData, address: v })} />
+                    <ImageUpload img={img} handleImageChange={handleImageChange} />
+                  </div>
+                )}
+
+                {/* Registration Navigation Buttons */}
+                <div className="flex gap-4 pt-8">
+                  {step > 1 && (
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <ChevronLeft size={18} /> Back
+                    </button>
+                  )}
+                  {step < 3 ? (
+                    <button
+                      type="button"
+                      onClick={nextStep}
+                      className="flex-[2] px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                    >
+                      Continue <ChevronRight size={18} />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="flex-[2] px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                    >
+                      Complete Registration <CheckCircle2 size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </form>
+
+          {/* --- FOOTER LINKS (Full Fidelity) --- */}
+          <div className="space-y-4 pt-6 border-t border-slate-100 mt-8">
             {!adminLogin && (
               <p className="text-center text-sm text-slate-600">
                 {existing ? "Don't have an account?" : "Already have an account?"}
                 <button
                   type="button"
-                  onClick={() => setExisting(!existing)}
+                  onClick={() => { setExisting(!existing); setStep(1); }}
                   className="ml-2 font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                 >
                   {existing ? "Sign up" : "Log in"}
@@ -394,14 +370,13 @@ const Enroll = () => {
               </p>
             )}
 
-            {/* Toggle Admin */}
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setAdminLogin(!adminLogin)}
+                onClick={() => { setAdminLogin(!adminLogin); setStep(1); }}
                 className="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
               >
-                {adminLogin ? "← Back to User Login" : "Admin Access"}
+                {adminLogin ? "← Back to User Login" : "Administrator Access"}
               </button>
             </div>
           </div>

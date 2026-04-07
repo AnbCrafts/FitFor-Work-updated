@@ -6,117 +6,113 @@ import fs from 'fs'
 import { sendNotification } from "./Notification.Controllers.js";
 import Job from "../Models/Job.Models.js";
 import Seeker from "../Models/Seeker.Models.js";
+import mongoose from "mongoose";
 
 const { isEmail } = validator;
   
- 
+
+
 const registerCompany = async (req, res) => {
-  try {
-    const {
-      owner,
-      companyEmail,
-      companyName,
-      companyLogo,
-      companyWebsite,
-      companySize,
-      industry,
-      location,
-      contactNumber,
-      about,
-      preferredSkills,
-      preferredExperience,
-      jobTypesOffered
-    } = req.body;
+    const logoLocalPath = req.file?.path;
 
-    console.log("BODY -> ", req.body);
-    console.log("FILE -> ", req.files);
-    console.log("LOGO -> ", companyLogo)
+    try {
+        const {
+            companyEmail,
+            companyName,
+            companyWebsite,
+            companySize,
+            industry,
+            location,
+            contactNumber,
+            about,
+            preferredSkills,
+            preferredExperience,
+            jobTypesOffered
+        } = req.body;
 
-    if (!owner || !companyEmail || !companyName || !companyWebsite || !contactNumber || !location) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+        // 1. Security & Validation: Use req.user._id from verifyJWT
+        const ownerId = req.user._id;
+
+        if (!companyEmail || !companyName || !companyWebsite || !contactNumber || !location) {
+            if (logoLocalPath) fs.unlinkSync(logoLocalPath);
+            return res.status(400).json({ success: false, message: "Missing required company fields" });
+        }
+
+        // 2. Prevent Duplicate Authority Profiles for one User
+        const existingProfile = await Authority.findOne({ owner: ownerId });
+        if (existingProfile) {
+            if (logoLocalPath) fs.unlinkSync(logoLocalPath);
+            return res.status(409).json({ success: false, message: "An Authority profile already exists for this account." });
+        }
+
+        // 3. Prevent Brand/Email Conflicts
+        const brandConflict = await Authority.findOne({
+            $or: [{ companyEmail }, { companyName: companyName.trim() }]
+        });
+        if (brandConflict) {
+            if (logoLocalPath) fs.unlinkSync(logoLocalPath);
+            return res.status(409).json({ success: false, message: "Company name or email is already registered" });
+        }
+
+        // 4. Handle Logo Upload
+        if (!logoLocalPath) {
+            return res.status(400).json({ success: false, message: "Company logo is required for branding" });
+        }
+
+        const uploadedLogo = await uploadOnCloudinary(logoLocalPath);
+        if (!uploadedLogo) {
+            return res.status(500).json({ success: false, message: "Logo upload failed" });
+        }
+        if (fs.existsSync(logoLocalPath)) fs.unlinkSync(logoLocalPath);
+
+        // 5. Create Authority Profile
+        const newAuthority = await Authority.create({
+            companyEmail,
+            companyName,
+            companyWebsite,
+            companySize,
+            industry,
+            location,
+            contactNumber,
+            about,
+            preferredSkills: Array.isArray(preferredSkills) ? preferredSkills : preferredSkills?.split(","),
+            preferredExperience,
+            jobTypesOffered: Array.isArray(jobTypesOffered) ? jobTypesOffered : jobTypesOffered?.split(","),
+            companyLogo: uploadedLogo.secure_url,
+            owner: ownerId
+        });
+
+        // 6. LINKING: Update User document to reference the Authority profile
+        // This is critical for populate('authorityProfile') calls later
+        await User.findByIdAndUpdate(ownerId, { 
+            authorityProfile: newAuthority._id,
+            role: "Authority" // Optional: Auto-promote role on registration
+        });
+
+        // 7. Notification (The Snapshot for Admin/User)
+        sendNotification({
+            recipientId: ownerId,
+            title: "Welcome to the Platform! 🏢",
+            subject: `Your company ${companyName} is now registered. Start posting jobs!`,
+            type: "authority-registration",
+            metaData: {
+                authorityId: newAuthority._id,
+                name: companyName,
+                logo: uploadedLogo.secure_url
+            }
+        }).catch(err => console.error("Registration notification failed:", err));
+
+        return res.status(201).json({
+            success: true,
+            message: "Authority profile registered successfully",
+            authority: newAuthority
+        });
+
+    } catch (error) {
+        if (logoLocalPath && fs.existsSync(logoLocalPath)) fs.unlinkSync(logoLocalPath);
+        console.error("Authority Registration Error:", error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
-    
-
-    if (!isEmail(companyEmail)) {
-      return res.status(400).json({ success: false, message: "Enter a valid email" });
-    }
-
-    const logoPath = req.file?.path;
-   
-
-    if (!logoPath) {
-      return res.status(400).json({ success: false, message: "Company logo is required" });
-    }
-
-    const uploadedLogo = await uploadOnCloudinary(logoPath);
-    if(!uploadedLogo){
-      return res.status(500).json({ success: false, message: "Owner user not found" });
-
-    }
-    fs.unlinkSync(logoPath);
-    const existingUser = await User.findById(owner);
-    if (!existingUser) {
-      return res.status(404).json({ success: false, message: "Owner user not found" });
-    }
-
-    const existing = await Authority.findOne({
-      $or: [{ companyEmail }, { companyName }]
-    });
-
-    if (existing) {
-      return res.status(409).json({ success: false, message: "Company already registered" });
-    }
-
-
-    const newAuthority = new Authority({
-      companyEmail,
-      companyName,
-      companyWebsite,
-      companySize,
-      industry,
-      location,
-      contactNumber,
-      about,
-      preferredSkills,
-      preferredExperience,
-      jobTypesOffered,
-      companyLogo: uploadedLogo.secure_url,
-      owner
-    });
-
-    await newAuthority.save();
-
-    const sub = `A new Employer has created its profile and registered for the Employer form`
-
-   await sendNotification({
-  title: "Created Employer Profile",
-  subject: sub,
-  type: "authority-registration",
- metaData: {
-  authority: {
-    id: newAuthority._id,
-    ownerId:newAuthority.owner,
-    name:newAuthority.companyName
-    
-  }
-  
-}
-
-
-   })
-
-    return res.status(201).json({
-      success: true,
-      message: "Authority registered successfully",
-      authority: newAuthority
-    });
-
-    
-
-  } catch (error) {
-    console.error("Registration error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
-  }
 };
 const getAllCompanies = async (req,res)=>{
     try {
@@ -197,26 +193,62 @@ const removeCompany = async (req,res)=>{
         return res.json({success:false,message:"Something error occurred"})
     }
 }
+
 const getCompanyByOwner = async (req, res) => {
-  try {
-    const { ownerId } = req.params;
+    try {
+        const { ownerId } = req.params;
 
-    if (!ownerId) {
-      return res.status(400).json({ success: false, message: "Owner ID is required" });
+        // 1. Validation: Is the ID a valid MongoDB ObjectId?
+        if (!mongoose.Types.ObjectId.isValid(ownerId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid Owner ID format" 
+            });
+        }
+
+        // 2. Security: Authorization Check
+        // Only the owner themselves or an Admin should be able to see the full profile.
+        if (req.user.role !== "Admin" && req.user._id.toString() !== ownerId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Unauthorized: You cannot access this company profile." 
+            });
+        }
+
+        // 3. Fetch and Populate
+        // We populate 'owner' to get User details (Name, Email)
+        // We populate 'jobs' to show their active listings on the dashboard
+        const authority = await Authority.findOne({ owner: ownerId })
+            .populate("owner", "firstName lastName email phone")
+            .populate({
+                path: "jobs",
+                select: "title jobRole status applicantCount deadline",
+                options: { sort: { createdAt: -1 }, limit: 5 } // Only latest 5 for quick view
+            })
+            .lean();
+
+        if (!authority) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "No company profile found associated with this user." 
+            });
+        }
+
+        // 4. Response
+        return res.status(200).json({
+            success: true,
+            message: "Company profile retrieved successfully",
+            authority
+        });
+
+    } catch (error) {
+        console.error(`Error in getCompanyByOwner for ID ${req.params.ownerId}:`, error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Internal Server Error" 
+        });
     }
-
-    const authority = await Authority.findOne({ owner: ownerId });
-
-    if (!authority) {
-      return res.status(404).json({ success: false, message: "Authority not found for this owner ID" });
-    }
-
-    return res.status(200).json({ success: true, message: "Authority found", authority });
-  } catch (error) {
-    console.error("Error in getCompanyByOwner:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
-  }
-}
+};
 const getMatchingSeekers = async (req, res) => {
   try {
     const { authId } = req.params;

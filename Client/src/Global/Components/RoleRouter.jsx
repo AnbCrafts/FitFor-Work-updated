@@ -5,7 +5,7 @@ import AuthorityApp from '../../Authority/AuthorityApp';
 import AdminApp from '../../Admin/AdminApp';
 
 const RoleRouter = () => {
-  const { role } = useParams();
+  const { role } = useParams(); 
 
   if (role === 'seeker') return <SeekerApp />;
   if (role === 'authority') return <AuthorityApp />;

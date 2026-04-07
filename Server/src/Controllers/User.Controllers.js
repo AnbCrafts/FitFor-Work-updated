@@ -135,7 +135,7 @@ const loginUser = async (req, res) => {
         }
 
         // 5. Token Generation (Access & Refresh)
-            const {accessToken,refreshToken} = generateAccessAndRefreshTokens(newUser._id);
+            const {accessToken,refreshToken} = generateAccessAndRefreshTokens(user._id);
 
 
         // Save refresh token to DB if you're tracking active sessions
@@ -439,30 +439,19 @@ const logoutUser = async (req, res) => {
         });
     }
 };
-const getMe = async (req, res) => {
+ const getMe = async (req, res) => {
     try {
-        // req.user is already attached by your verifyJWT middleware
-        const user = await User.findById(req.user._id)
-            .select("-password -refreshToken -otp -otpExpires -__v");
-
-        if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: "User session not found" 
-            });
+        // req.user was already populated by verifyJWT
+        if (!req.user) {
+            return res.status(404).json({ success: false, message: "User not found" });
         }
 
         return res.status(200).json({
             success: true,
-            message: "User profile fetched successfully",
-            user
+            user: req.user // No need to query the DB again!
         });
     } catch (error) {
-        console.error("GetMe Error:", error);
-        return res.status(500).json({ 
-            success: false, 
-            message: "Internal Server Error" 
-        });
+        return res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 const updateMe = async (req, res) => {

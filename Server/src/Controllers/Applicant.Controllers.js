@@ -261,7 +261,6 @@ const getApplicantFromCompanyIdAndJobId = async(req,res)=>{
         return res.json({success:false,message:"Internal Sever Error"})
       }
 }
-
 const applicantData = async (applicantID) => {
   if (!applicantID) {
     return "Provide ApplicantID";
@@ -297,8 +296,6 @@ const applicantData = async (applicantID) => {
     achievements: seeker.achievements
   };
 };
-
-
 const getApplicantDATAFromCompanyId = async (req, res) => {
   try {
     const { companyId } = req.params;

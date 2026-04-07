@@ -9,12 +9,39 @@ import Authority from '../Models/Authority.Models.js';
 import mongoose from "mongoose";
 
 
+
+
 const createProfile = async (req, res) => {
-    // Helper to handle both JSON arrays and form-data strings
-    const toArray = (value) => {
+    // Helper 1: For simple String arrays (Skills, Languages, Achievements)
+    const toStringArray = (value) => {
         if (!value) return [];
         if (Array.isArray(value)) return value;
-        return value.split(",").map(v => v.trim());
+        try {
+            // Handle JSON stringified arrays from frontend
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            // Fallback to comma-separated string
+            return value.split(",").map(v => v.trim()).filter(v => v !== "");
+        }
+    };
+
+    // Helper 2: For Object arrays (Certifications)
+    const toObjectArray = (value) => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value;
+        try {
+            const parsed = JSON.parse(value);
+            // If the frontend sends strings, map them to the schema object format
+            if (Array.isArray(parsed)) {
+                return parsed.map(item => 
+                    typeof item === 'string' ? { name: item } : item
+                );
+            }
+        } catch (e) {
+            // Fallback for simple comma strings
+            return value.split(",").map(v => ({ name: v.trim() }));
+        }
     };
 
     const resumePath = req.file?.path;
@@ -39,70 +66,75 @@ const createProfile = async (req, res) => {
             achievements
         } = req.body;
 
-        // 1. Security: Use req.user._id from verifyJWT instead of req.body
         const userId = req.user._id;
 
-        // 2. Prevent Duplicates: Check if seeker profile already exists
+        // 1. Prevent Duplicates
         const existingProfile = await Seeker.findOne({ userId });
         if (existingProfile) {
             if (resumePath) fs.unlinkSync(resumePath);
             return res.status(409).json({ 
                 success: false, 
-                message: "Seeker profile already exists for this account. Use update instead." 
+                message: "Seeker profile already exists." 
             });
         }
 
-        // 3. Mandatory Field Check
+        // 2. Validate Enums & Required Fields
+        const validJobTypes = ["Office", "Home", "Remote"];
+        const normalizedJobType = validJobTypes.includes(preferredJobType) ? preferredJobType : "Office";
+
         if (!desiredPost || !status || !skills || !qualifications || !preferredLocation) {
             if (resumePath) fs.unlinkSync(resumePath);
             return res.status(400).json({ success: false, message: "Missing required profile fields." });
         }
 
-        // 4. Resume Upload logic
+        // 3. Resume Upload
         let uploadedResume = null;
         if (resumePath) {
             uploadedResume = await uploadOnCloudinary(resumePath);
+            fs.unlinkSync(resumePath); 
             if (!uploadedResume) {
                 return res.status(500).json({ success: false, message: "Failed to upload resume." });
             }
-            fs.unlinkSync(resumePath); // Clean up local file
         }
 
-        // 5. Create Seeker Document
+        // 4. Create Seeker Document
         const newSeeker = await Seeker.create({
             userId,
             desiredPost,
-            status,
-            skills: toArray(skills),
+            status: ["Fresher", "Experienced"].includes(status) ? status : "Fresher",
+            skills: toStringArray(skills),
             experience: Number(experience) || 0,
             qualifications,
             resume: uploadedResume?.secure_url || "",
             preferredLocation,
-            preferredJobType,
-            availableFrom,
-            currentCompany,
-            currentPost,
+            preferredJobType: normalizedJobType,
+            availableFrom: availableFrom || Date.now(),
+            currentCompany: currentCompany || "None",
+            currentPost: currentPost || "None",
             currentCTC: Number(currentCTC) || 0,
             expectedCTC: Number(expectedCTC) || 0,
-            portfolioLink,
-            certifications: toArray(certifications),
-            languagesKnown: toArray(languagesKnown),
-            achievements: toArray(achievements),
+            portfolioLink: portfolioLink || "",
+            certifications: toObjectArray(certifications), // Fixed the "Cast to embedded" error here
+            languagesKnown: toStringArray(languagesKnown),
+            achievements: toStringArray(achievements),
         });
 
-        // 6. Link Seeker to User Document (Critical for Populate)
+        // 5. Link to User
         await User.findByIdAndUpdate(userId, { seekerProfile: newSeeker._id });
 
         return res.status(201).json({ 
             success: true, 
-            message: "Professional profile initialized successfully", 
+            message: "Professional profile created successfully", 
             seeker: newSeeker 
         });
 
     } catch (error) {
         if (resumePath && fs.existsSync(resumePath)) fs.unlinkSync(resumePath);
-        console.error("Create Profile Error:", error);
-        return res.status(500).json({ success: false, message: "Internal server error during profile creation" });
+        console.error("Create Profile Error Detail:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message || "Internal server error" 
+        });
     }
 };
 const getAllSeekers = async (req, res) => {

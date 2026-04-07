@@ -3,7 +3,7 @@ import { acceptApplicant, getAllApplicant, getApplicantById, getApplicantDATAFro
 
 
 
-const ApplicantRouter =  Router(); 
+const ApplicantRouter =  Router();  
  
 ApplicantRouter.post("/list/all/applicant/:applicantId/job/:jobId/accept",acceptApplicant)
 ApplicantRouter.post("/list/all/applicant/:applicantId/job/:jobId/reject",rejectApplicant)

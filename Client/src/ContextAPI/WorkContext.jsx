@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
 import SHA256 from 'crypto-js/sha256';
 import { assets } from "../Authority/assets/assets";
-// import { createHash } from "crypto";
-//  import dotenv from 'dotenv';
-//  dotenv.config(); 
+
  
 
 export const WorkContext = createContext();
@@ -16,91 +14,83 @@ export const WorkContextProvider = ({ children }) => {
  
   // *********************** USER ROUTES *************************************************************************************
 
-// const getHashSecret = (fixedTime = '') => {
-  
-//   const part1 = import.meta.env.VITE_HASH_SECRET || 'fallbackSecret123';
-//   const time = fixedTime || Date.now().toString().slice(-4);
-//   const part2 = 'XyZ123!#$_@' + time;
-//   return [...part1].map((ch, i) => ch + (part2[i] || '')).join('');
-// };
-// FIXED — deterministic, stable secret generator
+
+// --- Clean States ---
+const [user, setUser] = useState(null); // Holds the full user object (role, name, etc.)
+const [seekerProfile, setSeekerProfile] = useState(null);
+const [authorityProfile, setAuthorityProfile] = useState(null);
+const [registerIndicator, setRegisterIndicator] = useState(false);
+const [isLoggedIn, setIsLoggedIn] = useState(false);
+const navigate = useNavigate();
+
+// --- Auth Function (Cookie Based) ---
+const registerUser = async (data, path) => {
+  try {
+    const response = await axios.post(
+      `${serverURL}/user/auth/${path}`,
+      data,
+      { withCredentials: true } // CRITICAL: Allows browser to receive/set the HttpOnly cookie
+    );
+
+    if (response?.data?.success) {
+      const userData = response.data.user;
+      
+      // Update State
+      setUser(userData);
+      setRegisterIndicator(true);
+
+      // No more localStorage.setItem("userToken") -> The cookie is now in the browser's jar.
+
+      // Navigate using the secureHash from the backend
+      navigate(`/auth/${userData.role.toLowerCase()}/${userData?.username}`);
+      
+      console.log(response.data.message);
+    } else {
+      console.error(response.data.message || "Registration failed");
+    }
+  } catch (error) {
+    console.error("Error while registering the user:", error.response?.data?.message || error.message);
+  }
+};
+
+// --- Profile Fetcher (Self-Correction) ---
+const [loading, setLoading] = useState(true); // To prevent flickering on refresh
+
+// --- The "Source of Truth" Function ---
+const checkAuthStatus = async () => {
+  try {
+    // This hits your verifyJWT protected route
+    const response = await axios.get(`${serverURL}/user/me`, { 
+      withCredentials: true 
+    });
+
+    if (response?.data?.success) {
+      setUser(response.data.user);
+      setIsLoggedIn(true);
+    } else {
+      setIsLoggedIn(false);
+      setUser(null);
+    }
+  } catch (error) {
+    setIsLoggedIn(false);
+    setUser(null);
+  } finally {
+    setLoading(false); // Stop showing the loading spinner
+  }
+};
+
+// --- Run on App Load ---
+useEffect(() => {
+  checkAuthStatus();
+}, []);
+
+// --- The Hash Secret Helper (Keep if needed for URL generation) ---
 const getHashSecret = (fixedTime = '') => {
   const part1 = "Yy9!Ffwk_+@54$+trackForge@secret__2025!@";
   const time = fixedTime || Date.now().toString().slice(-4);
   const part2 = "XyZ123!#$_@" + time;
   return [...part1].map((ch, i) => ch + (part2[i] || '')).join('');
 };
-
-
-
-const navigate = useNavigate();
-const [userId, setUserId] = useState(null);
-const [userToken, setUserToken] = useState(null);
-const [seekerId, setSeekerId] = useState(null);
-const [authorityId, setAuthorityId] = useState(null);
-const [adminId, setAdminId] = useState(null);
-const [seekerToken, setSeekerToken] = useState(null);
-const [authorityToken, setAuthorityToken] = useState(null);
-const [adminToken, setAdminToken] = useState(null);
-
-const [userData, setUserData] = useState(null);
-const [registerIndicator, setRegisterIndicator] = useState(false);
-
-const [securePath, setSecurePath] = useState(null);
-
-const registerUser = async (data, path) => {
-  try {
-    const response = await axios.post(
-      `${serverURL}/user/register/${path}`,
-      data
-    );
-
-    if (!response) {
-      console.log("Missing response");
-      return;
-    }
-
-    if (response.data.success === false) {
-      console.log("False response");
-      return;
-    }
-
-    if (response?.data?.success) {
-      const user = response.data.user;
-      const id = user.id;
-      const token = user.token;
-
-      setRegisterIndicator(true);
-
-      // Removed hash verification completely
-
-      setUserData(user);
-      setUserId(id);
-      setUserToken(token);
-
-      localStorage.setItem("userId", id);
-      localStorage.setItem("userToken", token);
-
-      // Navigate using _id instead of hash
-      navigate(`/auth/${user.role.toLowerCase()}/${response?.data?.user?.secureHash}`);
-
-      console.log(response.data.message);
-    } else {
-      console.log(response.data.message || "Authentication failed");
-    }
-  } catch (error) {
-    console.log("Error while registering the user");
-    console.log(error);
-  }
-};
-
-
-
-
-
-  useEffect(()=>{
-    setSecurePath(securePath)
-  },[securePath])
 
   //get all users end-point ----->
   const [allUsersList,setAllUsersList] = useState(null);
@@ -121,24 +111,43 @@ const registerUser = async (data, path) => {
   },[allUsersList])
 
   //user data by id end-point ----->
-  const getUserDataById = async (id) => {
-    try {
-      const response = await axios.get(`${serverURL}/user/list/all/${id}`);
+  // --- Essential State ---
+const [userData, setUserData] = useState(null);
 
-      if (response.data && response.data.success) {
-        const data = response.data.user;
-        setUserData(data);
-      } else {
-        console.log("cannot get userdata for this id", id);
-      }
-    } catch (error) {
-      console.log(error);
+// --- Corrected Function ---
+const getUserData = async () => {
+  try {
+    // 1. We remove the ID param because verifyJWT on the backend 
+    // already knows who "Me" is from the cookie.
+    const response = await axios.get(`${serverURL}/user/me`, { 
+      withCredentials: true 
+    });
+
+    if (response?.data?.success) {
+      setUserData(response.data.user);
+    } else {
+      console.error("Session invalid or user not found");
+      setUserData(null);
     }
-  };
-  
-  useEffect(()=>{
-    setUserData(userData);
-  },[userData]);
+  } catch (error) {
+    console.error("Error fetching user data:", error.response?.data?.message || error.message);
+    setUserData(null);
+  }
+};
+
+// --- Note: If you REALLY need to fetch a DIFFERENT user by ID (e.g. Admin view) ---
+const getOtherUserDataById = async (id) => {
+  try {
+    const response = await axios.get(`${serverURL}/user/list/all/${id}`, { 
+      withCredentials: true 
+    });
+    if (response?.data?.success) {
+      return response.data.user; // Usually better to return it than set global state
+    }
+  } catch (error) {
+    console.error("Fetch by ID failed", error);
+  }
+};
 
   // remove user by id end-point -------->
   const removeUserByID = async(id)=>{
@@ -181,22 +190,33 @@ const registerUser = async (data, path) => {
 
   }
 
-  const [singleUserData,setSingleUserData] = useState(null);
-  const getUserDataBySeekerId = async(id)=>{
-    try {
-      const response = await axios.get(`${serverURL}/user/list/all/seeker/${id}`);
-      if(response && response.data.success){
-        const data = response.data.user;
-        setSingleUserData(data);
+  // --- Clean State ---
+const [singleUserData, setSingleUserData] = useState(null);
 
-      }
-      else{
-        console.log("Cannot get user data from seeker data")
-      }
-    } catch (error) {
-      console.log(error);
+// --- Corrected Function ---
+const getUserDataBySeekerId = async (id) => {
+  // If no ID is passed, we can't fetch a specific profile
+  if (!id) return console.error("Seeker ID is required to fetch details");
+
+  try {
+    const response = await axios.get(
+      `${serverURL}/user/list/all/seeker/${id}`, 
+      { withCredentials: true } // MANDATORY for cookie-based sessions
+    );
+
+    if (response?.data?.success) {
+      // Direct assignment to state
+      setSingleUserData(response.data.user);
+    } else {
+      console.warn("Could not retrieve user data for seeker:", id);
+      setSingleUserData(null);
     }
+  } catch (error) {
+    // Handle 401 (Unauthorized) or 404 (Not Found) specifically if needed
+    console.error("Error fetching seeker-user data:", error.response?.data?.message || error.message);
+    setSingleUserData(null);
   }
+};
 
   //yet to implement
   const editProfile = async(id,data)=>{
@@ -216,105 +236,100 @@ const registerUser = async (data, path) => {
   // ************************ SEEKER ROUTES ************************************************************************************
 
 //  create profile end-point
+// --- Clean States ---
 const [initProfileData, setInitProfileData] = useState(null);
-const createSeekerProfile = async(data)=>{
-    try {
-      const response = await axios.post(`${serverURL}/applicant/profile/create`,data,{
+const [allSeekersList, setAllSeekersList] = useState([]); // Initialize as array to avoid .map errors
+
+// --- Create Seeker Profile (With Cookie & Multi-part) ---
+const createSeekerProfile = async (formData) => {
+  try {
+    const response = await axios.post(
+      `${serverURL}/applicant/profile/create`, 
+      formData, 
+      {
+        withCredentials: true, // MANDATORY: Sends the auth cookie with the form data
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      });
-      if(!response){
-        console.log("Cannot get response")
       }
-      if(response && response.data.success){
-        console.log(response.data.message);
-        const data = response.data.seeker;
-        setInitProfileData(data);
-      
-      }else{
-        console.log("Failed to create your job seeker profile, got negative response")
-      }
-    } catch (error) {
-      console.log(error);
-    }
-}
-
-  //get all users end-point ----->
-  const [allSeekersList,setAllSeekersList] = useState(null);
-  const getAllSeekersList = async()=>{
-    try {
-      const response = await axios.get(`${serverURL}/applicant/profile/list/all`);
-      if(response && response.data.success){
-        const data = response.data.seeker;
-        setAllSeekersList(data);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  }
- useEffect(()=>{
-    setAllSeekersList(allSeekersList);
-  },[allSeekersList])
-
-  //seeker data by id end-point ----->
-  const [seekerData,setSeekerData] = useState(null);
-  const getSeekerDataById = async (id) => {
-    try {
-      if(!id){
-        console.log("Id not found")
-      }
-      const response = await axios.get(`${serverURL}/applicant/profile/list/all/${id}`);
-
-      if (response.data && response.data.success) {
-        const data = response.data.seeker;
-       setSeekerData(data);
-      } else {
-        console.log("cannot get seekerData for this id", id);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  }; 
-  
-  useEffect(()=>{
-    setSeekerData(seekerData);
-  },[seekerData])
-  
-  const [user_seekerData, setUser_SeekerData] = useState(null);
-  const getSeekerDataByUserId = async (id) => {
-  if (!id) {
-    console.warn("User ID is required to fetch seeker data.");
-    return;
-  }
-
-  try {
-    const response = await axios.get(`${serverURL}/applicant/profile/list/all/user/${id}`);
+    );
 
     if (response?.data?.success) {
-      const id = response.data.seeker._id;
-      localStorage.setItem("seekerId",id);
-      setUser_SeekerData(response.data.seeker);
-
-    } else {
-      console.warn("Seeker data not found for user ID:", id);
-    }
+      const seekerData = response.data.seeker;
+      setInitProfileData(seekerData);
+      console.log("Profile Created:", response.data.message);
+      return true; // Useful for navigating away after success
+    } 
   } catch (error) {
-    console.error("Error fetching seeker data:", error);
+    console.error("Profile Creation Error:", error.response?.data?.message || error.message);
+    return false;
   }
 };
 
-useEffect(()=>{
-  const id = localStorage.getItem("userId");
-  if(id){
-    getSeekerDataByUserId(id);
+// --- Get All Seekers (Public or Admin List) ---
+const getAllSeekersList = async () => {
+  try {
+    const response = await axios.get(
+      `${serverURL}/applicant/profile/list/all`,
+      { withCredentials: true } // Assuming this route is protected
+    );
+
+    if (response?.data?.success) {
+      setAllSeekersList(response.data.seeker);
+    }
+  } catch (error) {
+    console.error("Error fetching seekers:", error.response?.data?.message || error.message);
   }
-})
+};
 
+  //seeker data by id end-point ----->
+  // --- Clean States ---
+const [seekerData, setSeekerData] = useState(null); // For looking up other seekers (e.g., by Employer)
+const [userSeekerData, setUserSeekerData] = useState(null); // The logged-in user's seeker profile
 
-  useEffect(()=>{
-    setUser_SeekerData(user_seekerData);
-  },[user_seekerData])
+// --- Get Seeker by ID (For Employer/Admin View) ---
+const getSeekerDataById = async (id) => {
+  if (!id) return console.warn("Seeker ID is required.");
+  
+  try {
+    const response = await axios.get(
+      `${serverURL}/applicant/profile/list/all/${id}`,
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      setSeekerData(response.data.seeker);
+    }
+  } catch (error) {
+    console.error("Error fetching seeker by ID:", error.response?.data?.message || error.message);
+  }
+};
+
+// --- Get "MY" Seeker Profile (Automatic via Cookie) ---
+const getMySeekerProfile = async () => {
+  try {
+    // Note: Removed the 'id' parameter. The backend identifies you via Cookie.
+    const response = await axios.get(
+      `${serverURL}/applicant/profile/me`, 
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      setUserSeekerData(response.data.seeker);
+    }
+  } catch (error) {
+    console.error("Error fetching your seeker profile:", error.response?.data?.message || error.message);
+  }
+};
+
+// --- Lifecycle: Auto-fetch profile if logged in ---
+// useEffect(() => {
+//   // Instead of checking localStorage, we check if we have a base 'user' state
+//   // or just attempt to fetch the profile on mount.
+//   if (isLoggedIn) {
+//     getMySeekerProfile();
+//   }
+// }, [isLoggedIn]);
 
 
   // remove user by id end-point -------->
@@ -382,39 +397,39 @@ const getWantedAuthorities = async (seekerId, i, j) => {
 
 
 
-const [dashboardData,setDashboardData] = useState(null);
+// --- Essential State ---
+const [dashboardData, setDashboardData] = useState(null);
 
+// --- Corrected Function ---
+const getSeekerDashboardData = async () => {
+  try {
+    // 1. Removed the ID from the URL. 
+    // 2. The backend route should now be something like '/applicant/profile/me/dashboard'
+    const response = await axios.get(
+      `${serverURL}/applicant/profile/me/dashboard-data`, 
+      { withCredentials: true } // MANDATORY: Sends the session cookie
+    );
 
-const getSeekerDashboardData = async()=>{
-      try {
-        const id = localStorage.getItem("seekerId");
-        const response = await axios.get(`${serverURL}/applicant/profile/list/all/${id}/dashboard-data`);
-        if(!response){
-          console.log("Cannot get response");
+    if (response?.data?.success) {
+      const data = response.data.userDashboard;
+      setDashboardData(data);
+      console.log("User Dashboard Loaded:", data);
+    } else {
+      // If the seeker profile doesn't exist yet for this user
+      setDashboardData("No Profile");
+    }
+  } catch (error) {
+    console.error("Dashboard Fetch Error:", error.response?.data?.message || error.message);
+    setDashboardData(null);
+  }
+};
 
-        }
-        if(response && response.data.success){
-          const data = response.data.userDashboard;
-          setDashboardData(data);
-          console.log("User Dashboard : ", data);
-        }else{
-          setDashboardData("No Profile");
-        }
-      } catch (error) {
-        console.log(error);
-      }
-}
-
-
-useEffect(()=>{
-  const id = localStorage.getItem("seekerId");
-  if(id){
+// --- Lifecycle: Trigger when user is confirmed logged in ---
+useEffect(() => {
+  if (isLoggedIn) {
     getSeekerDashboardData();
   }
-},[])
-useEffect(()=>{
-  setDashboardData(dashboardData)
-},[dashboardData])
+}, [isLoggedIn]);
 
 
 
@@ -422,163 +437,196 @@ useEffect(()=>{
   // *********************** AUTHORITY ROUTES *************************************************************************************
   
 
-  const registerForAuthority = async (data) => {
-    try {
-      const response = await axios.post(
-        `${serverURL}/authority/register/new`,
-        data,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      if (response && response.data.success) {
-        console.log(response.data.message);
-      } else {
-        console.log("Registration failed for authority");
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  // --- [STATES: AUTHORITY] ---
+const [authData, setAuthData] = useState(null); // The Company Profile
 
-  const [authData, setAuthData] = useState(null);
+// --- [METHODS: AUTHORITY] ---
 
-  const getCompanyByOwnerId = async(id)=>{
-    try {
-      const response = await axios.get(`${serverURL}/authority/list/all/owner/${id}`);
-      if(response && response.data.success){
-        const authority = response.data.authority;
-        setAuthData(authority);
-      }else{
-        console.log("SOmething error occurred or false response")
-      }
-    } catch (error) {
-      console.log(error)
-    }
-  }
-
-  useEffect(() => {
-    setAuthData(authData);
-  }, [authData]);
-
-  const [allAuthorities, setAllAuthorities] = useState(null);
-  const getAllAuthorities = async()=>{
-     try {
-      const response = await axios.get(`${serverURL}/authority/list/all`);
-      if(response && response.data.success){
-        const data = response.data.authorities;
-       
-        setAllAuthorities(data);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  useEffect(()=>{
-setAllAuthorities(allAuthorities);
-  },[allAuthorities])
-
-   const [oneAuthData,setOneAuthData] = useState(null);
-  const getAuthorityByID = async (id) => {
-    try {
-      if(!id){
-        console.log("Id not found")
-      }
-      const response = await axios.get(`${serverURL}/authority/list/all/${id}`);
-
-      if (response.data && response.data.success) {
-        const data = response.data.authority;
-       setOneAuthData(data);
-      } else {
-        console.log("cannot get OneAuthData for this id", id);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const [matchedData,setMatchedData] = useState({
-    totalMatches: 0,
-      matchedSkills: [],
-      seekers: [],
-  });
-
-  const getMatchedData = async(id)=>{
-    if(!id){
-      console.log("Authority ID Is required");
-    }
-    try {
-      const response = await axios.get(`${serverURL}/authority/list/all/seekers/matching-skills/${id}`);
-      if(response && response.data.success){
-        const match = response.data.totalMatches;
-        const skills = response.data.matchedSkills;
-        const seekers = response.data.seekers;
-        setMatchedData({
-          matchedSkills:skills,
-          seekers:seekers,
-          totalMatches:match
-        })
-
-      }else{
-        console.log(response.data.message || "Cannot get response")
-      }
-      
-    } catch (error) {
-      console.log("Internal Server Error");
-      console.log(error);
-    }
-
-  }
-
- const editAuthProfile = async (id, data) => {
-  if (!id || !data || Object.keys(data).length === 0) {
-    console.log("Provide valid ID and profile data");
-    return;
-  }
-
+// 1. Register Authority (Multi-part Logo + Cookie)
+const registerForAuthority = async (formData) => {
   try {
-    const response = await axios.put(
-      `${serverURL}/authority/profile/edit/${id}`,
-      data,
+    const response = await axios.post(
+      `${serverURL}/authority/register/new`, 
+      formData, 
       {
+        withCredentials: true, // MANDATORY: Links the company to the logged-in user
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("userToken")}`,
+          "Content-Type": "multipart/form-data",
         },
       }
     );
 
-    if (response.data.success) {
-      console.log("Profile updated successfully!");
-      return response.data;
-    } else {
-      console.log(response.data.message || "Failed to update profile");
-    }
+    if (response?.data?.success) {
+      console.log("Authority Registered:", response.data.message);
+      // Optional: Re-fetch company data to update UI
+      getMyCompanyProfile(); 
+      return true;
+    } 
   } catch (error) {
-    console.error("Edit profile error:", error);
-    console.log("Internal Server Error");
+    console.error("Authority Registration Error:", error.response?.data?.message || error.message);
+    return false;
   }
 };
 
-const [allCompanies,setAllCompanies] = useState(null);
-const getAllCompanyNames  = async()=>{
+// 2. Get "MY" Company Profile (Automatic via Cookie)
+const getMyCompanyProfile = async () => {
   try {
-      const response = await axios.get(`${serverURL}/authority/all/names`);
-      if(response && response.data.success){
-        setAllCompanies(response.data.companyNames);
-      }else{
-        console.log("Cannot get positive response")
-      }
-    
-  } catch (error) {
-    console.log("Internal Server Error");
-    console.log(error);
-  }
-}
+    // Note: No 'id' param needed. The backend uses verifyJWT to find the owner.
+    const response = await axios.get(
+      `${serverURL}/authority/profile/my-company`, 
+      { withCredentials: true }
+    );
 
+    if (response?.data?.success) {
+      setAuthData(response.data.authority);
+    }
+  } catch (error) {
+    console.error("Error fetching company profile:", error.response?.data?.message || error.message);
+  }
+};
+
+// --- [LIFECYCLE EXECUTIONS] ---
+useEffect(() => {
+  // Automatically load company data if the user is logged in as an Authority
+  if (isLoggedIn && user?.role === "Authority") {
+    getMyCompanyProfile();
+  }
+}, [isLoggedIn, user?.role]);
+
+// --- [FINAL EXPORT] ---
+
+// --- [STATES: AUTHORITY DISCOVERY] ---
+const [allAuthorities, setAllAuthorities] = useState([]); // Array-first to prevent crashes
+const [oneAuthData, setOneAuthData] = useState(null);
+
+// --- [METHODS: AUTHORITY DISCOVERY] ---
+
+// 1. Get All Companies (Public List)
+const getAllAuthorities = async () => {
+  try {
+    const response = await axios.get(
+      `${serverURL}/authority/list/all`,
+      { withCredentials: true } // Lets backend know if we are logged in
+    );
+
+    if (response?.data?.success) {
+      setAllAuthorities(response.data.authorities);
+    }
+  } catch (error) {
+    console.error("Error fetching all authorities:", error.response?.data?.message || error.message);
+  }
+};
+
+// 2. Get Single Company by ID (Public Detail View)
+const getAuthorityByID = async (id) => {
+  if (!id) return console.warn("Authority ID is missing");
+
+  try {
+    const response = await axios.get(
+      `${serverURL}/authority/list/all/${id}`,
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      setOneAuthData(response.data.authority);
+    } else {
+      setOneAuthData(null);
+    }
+  } catch (error) {
+    console.error("Error fetching authority detail:", error.response?.data?.message || error.message);
+    setOneAuthData(null);
+  }
+};
+
+// --- [FINAL EXPORT] ---
+
+
+  // --- [STATES: AUTHORITY MATCHING] ---
+const [matchedData, setMatchedData] = useState({
+  totalMatches: 0,
+  matchedSkills: [],
+  seekers: [],
+});
+
+// --- [METHODS: AUTHORITY] ---
+
+// 1. Get Matching Seekers (AI/Skill Match for Employer)
+const getMatchedData = async (id) => {
+  // If your backend is updated, you won't even need this 'id' param
+  const targetId = id || authData?._id; 
+  if (!targetId) return console.warn("Authority ID is required for matching");
+
+  try {
+    const response = await axios.get(
+      `${serverURL}/authority/list/all/seekers/matching-skills/${targetId}`,
+      { withCredentials: true } // Sends the session cookie
+    );
+
+    if (response?.data?.success) {
+      setMatchedData({
+        matchedSkills: response.data.matchedSkills || [],
+        seekers: response.data.seekers || [],
+        totalMatches: response.data.totalMatches || 0
+      });
+    }
+  } catch (error) {
+    console.error("Matching Error:", error.response?.data?.message || "Internal Server Error");
+  }
+};
+
+// 2. Edit Authority Profile (Cookie-Based & Secure)
+const editAuthProfile = async (formData) => {
+  // We remove the 'id' param because the backend identifies the owner via Cookie
+  if (!formData) return console.warn("Provide profile data to update");
+
+  try {
+    const response = await axios.put(
+      `${serverURL}/authority/profile/edit/me`, // Changed to a /me endpoint for security
+      formData,
+      {
+        withCredentials: true, // Replaces manual Authorization header
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response?.data?.success) {
+      console.log("Profile updated successfully!");
+      // Refresh the local authData state with the new details
+      setAuthData(response.data.authority);
+      return response.data;
+    }
+  } catch (error) {
+    console.error("Edit profile error:", error.response?.data?.message || "Internal Server Error");
+  }
+};
+
+// --- [FINAL EXPORT] ---
+
+// --- [STATES: AUTHORITY NAMES] ---
+const [allCompanies, setAllCompanies] = useState([]); // Array-first for safe .map()
+
+// --- [METHODS: AUTHORITY NAMES] ---
+
+// 1. Get All Company Names (Lightweight for Dropdowns/Filters)
+const getAllCompanyNames = async () => {
+  try {
+    const response = await axios.get(
+      `${serverURL}/authority/all/names`,
+      { withCredentials: true } // Best practice even for public routes
+    );
+
+    if (response?.data?.success) {
+      // Assuming companyNames is the array from backend
+      setAllCompanies(response.data.companyNames || []);
+    }
+  } catch (error) {
+    console.error("Error fetching company names:", error.response?.data?.message || error.message);
+  }
+};
+
+// --- [FINAL EXPORT] ---
 
 
 
@@ -587,375 +635,237 @@ const getAllCompanyNames  = async()=>{
  
   // *********************** JOB ROUTES *************************************************************************************
  
-  const [jobs,setJobs] = useState(null);
-  const createJob = async(data)=>{
-    if(!data){
-      console.log("Provide DATA")
+ // --- [STATES: JOBS & MARKETPLACE] ---
+const [jobs, setJobs] = useState([]); // Jobs for a specific Authority
+const [allJobs, setAllJobs] = useState([]); // Global Marketplace
+const [singleJob, setSingleJob] = useState(null); // Detailed view
+const [applicantId, setApplicantId] = useState(null); // Last application status
+
+// --- [METHODS: JOBS & MARKETPLACE] ---
+
+// 1. Create a New Job (Authority Only)
+const createJob = async (jobData) => {
+  if (!jobData) return console.warn("Provide Job Data");
+  try {
+    const response = await axios.post(`${serverURL}/job/create/new`, jobData, { withCredentials: true });
+    if (response?.data?.success) {
+      console.log("Job Posted Successfully");
+      await getJobByAuthority(); // Refresh the list
+      return true;
     }
-    try {
-      const response = await axios.post(`${serverURL}/job/create/new`, data);
-      if(!response){
-        console.log("Found no response");
-        console.log("No Response");
-      }
-      if(response.data.success ===false){
-        
-        console.log("Found false response",response)
-      }
-      if(response && response.data.success){
-        console.log("Job Posted Successfully");
-      }
+  } catch (error) {
+    console.error("Create Job Error:", error.response?.data?.message || error.message);
+  }
+};
 
-      console.log("Posted data is -> ", data);
-
-
-      
-    } catch (error) {
-      console.log(error)
+// 2. Get Jobs by Authority (My Postings)
+const getJobByAuthority = async () => {
+  try {
+    // Note: No ID needed, backend finds jobs by owner cookie
+    const response = await axios.get(`${serverURL}/job/list/all/authority/me`, { withCredentials: true });
+    if (response?.data?.success) {
+      setJobs(response.data.jobs || []);
     }
-
+  } catch (error) {
+    console.error("Error fetching your jobs:", error.response?.data?.message);
   }
-  const getJobByAuthority = async(id)=>{
-    try {
-      const response = await axios.get(`${serverURL}/job/list/all/authority/${id}`);
-      if(!id){
-        console.log("Cannot get id");
-      }
-      if(response && response.data.success){
-          console.log("Got all the jobs for this id");
-          const data = response.data.jobs;
-          setJobs(data);
-      }else{
-          console.log("Cannot get the jobs for this id");
+};
 
-      }
-      
-    } catch (error) {
-     console.log(error); 
+// 3. Get Global Jobs (Marketplace)
+const getAllJobsFromDB = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/job/list/all`, { withCredentials: true });
+    if (response?.data?.success) {
+      setAllJobs(response.data.jobs || []);
     }
-
+  } catch (error) {
+    console.error("Marketplace Error:", error.message);
   }
-  const[allJobs,setAllJobs] = useState(null);
-  const getAllJobsFromDB = async()=>{
-    try {
-      const response = await axios.get(`${serverURL}/job/list/all`);
-      if(response.data.success){
-        const data = response.data.jobs;
-        setAllJobs(data);
+};
 
-      }else{
-      console.log("Cannot get all jobs");
-
-      }
-      
-    } catch (error) {
-      console.log(error);
+// 4. Delete Job
+const deleteJob = async (id) => {
+  if (!id) return;
+  try {
+    const response = await axios.delete(`${serverURL}/job/list/all/${id}/remove`, { withCredentials: true });
+    if (response?.data?.success) {
+      console.log("Job deleted successfully");
+      setAllJobs((prev) => prev.filter(job => job._id !== id));
+      setJobs((prev) => prev.filter(job => job._id !== id));
     }
-
+  } catch (error) {
+    console.error("Deletion Failed:", error.response?.data?.message);
   }
-  const deleteJob = async(id)=>{
-    try {
-      if(!id){
-        console.log("cannot get id of the job");
+};
 
-      }
-      const response = await axios.delete(`${serverURL}/job/list/all/${id}/remove`);
-      if(response.data.success){
-          console.log("Job deleted successfully")
-          await getAllJobsFromDB();
-      }else{
-          console.log("Job deletion failed")
-
-      }
-      
-    } catch (error) {
-      console.log(error);
+// 5. Get Single Job Details
+const getSingleJobById = async (id) => {
+  if (!id) return;
+  try {
+    const response = await axios.get(`${serverURL}/job/list/all/${id}`, { withCredentials: true });
+    if (response?.data?.success) {
+      setSingleJob(response.data.job);
     }
-
+  } catch (error) {
+    console.error("Fetch Single Job Error:", error.message);
   }
-  
-  const [singleJob,setSingleJob] = useState(null);
+};
 
-  const getSingleJobById = async(id)=>{
-        try {
-          const response = await axios.get(`${serverURL}/job/list/all/${id}`);
-        if(response && response.data.success){
-          const data = response.data.job;
-          setSingleJob(data);
-
-        }else{
-          console.log("Could not get positive response")
-        }
-        } catch (error) {
-          console.log(error);
-        }
-  }
-
-  const [applicant_id, setApplicant_id] = useState(null);
-  const applyForJob = async(jobId,seekerId)=>{
-    try {
-      const response = await axios.post(`${serverURL}/job/${jobId}/applicant/${seekerId}/apply`);
-      if(response && response.data.success){
-        const data = response.data.applicantId;
-        setApplicant_id(data);
-
-        console.log("You have applied for this job successfully");
-        console.log(data);
-      }
-      else{
-        console.log("Could not get positive response");
-        console.log(response.data.message || "Failed to apply")
-      }
-    } catch (error) {
-      console.log(error)
-      
+// 6. Apply for Job (Seeker Only)
+const applyForJob = async (jobId) => {
+  // seekerId is removed - backend identifies Seeker via Cookie
+  if (!jobId) return;
+  try {
+    const response = await axios.post(`${serverURL}/job/${jobId}/apply`, {}, { withCredentials: true });
+    if (response?.data?.success) {
+      const data = response.data.applicantId;
+      setApplicantId(data);
+      console.log("Application Successful:", data);
+      return true;
     }
+  } catch (error) {
+    console.error("Application Failed:", error.response?.data?.message || error.message);
   }
- 
-  useEffect(()=>{
-    setAllJobs(allJobs)
-  },[allJobs]);
+};
 
-
-
-  useEffect(()=>{
-    setSingleJob(singleJob);
-  },[singleJob])
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
   // *********************** APPLICANT ROUTES *************************************************************************************
-  const [allApplicants, setAllApplicants] = useState(null);
-  const [singleApplicantData, setSingleApplicantData] = useState(null);
- const getAllApplicants = async () => {
+ // --- [STATES: APPLICANTS & HIRING] ---
+const [allApplicants, setAllApplicants] = useState([]);
+const [singleApplicantData, setSingleApplicantData] = useState(null);
+const [jobApplicants, setJobApplicants] = useState([]);
+
+// --- [METHODS: APPLICANTS & HIRING] ---
+
+// 1. Get All Applicants (Admin/Global View)
+const getAllApplicants = async () => {
   try {
-    const response = await axios.get(`${serverURL}/job-applicant/list/all`);
-    
+    const response = await axios.get(`${serverURL}/job-applicant/list/all`, { withCredentials: true });
     if (response?.data?.success) {
-      const data = response.data.applicants;
-      setAllApplicants(data);
-      console.log("All Applicants - ", data);
-    } else {
-      console.log("Could not get positive response");
-    }
-
-  } catch (error) {
-    console.error("Error in getAllApplicants:", error);
-  }
-}; 
- 
-
-  const getApplicantById = async (id, indicator) => {
-  if (!id) {
-    console.log("Cannot get Id");
-    return;
-  }
-
-
-
-  if (!indicator) {
-    console.log("Provide Indicator");
-    return;
-  }
-
-  try {
-    let response = "";
-
-    if (indicator === 1) {
-      response = await axios.get(`${serverURL}/job-applicant/list/all/${id}`);
-    }  else if (indicator === 2) {
-      response = await axios.get(`${serverURL}/job-applicant/list/all/seeker/${id}`);
-    } else if (indicator === 3) {
-      response = await axios.get(`${serverURL}/job-applicant/list/all/company/${id}`);
-    } else {
-      console.log("No valid indicator provided");
-      return;
-    }
-
-
-    
-    if (response?.data?.success) {
-      const data = response.data.applicant;
-      // console.log(data);
-      setSingleApplicantData(data);
-      // console.log("API response:", response.data);
-
-    } else {
-      console.log("Could not get positive response");
+      setAllApplicants(response.data.applicants || []);
     }
   } catch (error) {
-    console.error("Error fetching applicant data:", error?.response?.data || error.message);
-  }
-};
-  const getApplicantBySeekerId = async (id) => {
-  if (!id) {
-    console.log("Cannot get Id");
-    return;
-  }
-
-  try {
-    
-    
-     const response = await axios.get(`${serverURL}/job-applicant/list/all/seeker/${id}`);
-    
-    if (response?.data?.success) {
-      const data = response.data.applicant;
-      console.log(data);
-      setSingleApplicantData(data);
-      console.log("API response:", response.data);
-
-    } else {
-      console.log("Could not get positive response");
-    }
-  } catch (error) {
-    console.error("Error fetching applicant data:", error?.response?.data || error.message);
+    console.error("Error fetching all applicants:", error.message);
   }
 };
 
-const [jobApplicants,setJobApplicants] = useState(null);
-
-const getApplicantsByJobId = async(id)=>{
-  if (!id) {
-    console.log("Cannot get Id");
-    return;
-  }
-  try {
-    const response = await axios.get(`${serverURL}/job-applicant/list/all/job/${id}`);
-    if(response && response.data.success){
-      const data = response.data.applicants;
-      setJobApplicants(data);
-
-    }
-    else{
-      console.log("Cannot get positive response")
-    }
-  } catch (error) {
-   console.log(error) 
-  }
-}
-
-
-  const getApplicantByJobAndCompanyId = async(compId,jobId)=>{
-      if(!compId){
-        console.log("Provide company ID");
-      }
-      if(!jobId){
-        console.log("Provide Job ID");
-      }
-      try {
-        const response = await axios.get(`${serverURL}/list/all/company/${compId}/job/${jobId}`);
-        if(response && response.data.success){
-          const data = response.data.applicant;
-          setSingleApplicantData(data);
-          console.log(data);
-        }
-      } catch (error) {
-        console.log(error)
-      }
-  }
-
-  const approveApplicant = async (applicantId, jobId, text) => {
-  try {
-    let response = "";
-    const action = text.toLowerCase();
-
-    if (action === 'accept') {
-      response = await axios.post(`${serverURL}/job-applicant/list/all/applicant/${applicantId}/job/${jobId}/accept`);
-    } else if (action === 'reject') {
-      response = await axios.post(`${serverURL}/job-applicant/list/all/applicant/${applicantId}/job/${jobId}/reject`);
-    } else {
-      console.log("Invalid action text. Use 'accept' or 'reject'");
-      return; // stop the function
-    }
-
-    if (response && response.data.success) {
-      console.log(`Applicant ${action}ed successfully`);
-    } else {
-      console.log("Could not get positive response");
-    }
-
-    await getAllApplicants();
-
-  } catch (error) {
-    console.log(error);
-    console.log("An error occurred while processing the request");
-  }
-};
-
-
-
-  useEffect(()=>{
-    setAllApplicants(allApplicants)
-  },[allApplicants])
+// 2. Flexible Applicant Fetch (by ID, Seeker, or Company)
+const getApplicantById = async (id, indicator) => {
+  if (!id || !indicator) return console.warn("ID and Indicator are required");
   
-  useEffect(()=>{
-    setSingleApplicantData(singleApplicantData)
-  },[singleApplicantData])
+  let endpoint = "";
+  if (indicator === 1) endpoint = `/job-applicant/list/all/${id}`;
+  else if (indicator === 2) endpoint = `/job-applicant/list/all/seeker/${id}`;
+  else if (indicator === 3) endpoint = `/job-applicant/list/all/company/${id}`;
+  else return console.warn("Invalid indicator");
+
+  try {
+    const response = await axios.get(`${serverURL}${endpoint}`, { withCredentials: true });
+    if (response?.data?.success) {
+      setSingleApplicantData(response.data.applicant);
+    }
+  } catch (error) {
+    console.error("Error fetching applicant details:", error.message);
+  }
+};
+
+// 3. Get Applicants for a Specific Job (Employer Dashboard)
+const getApplicantsByJobId = async (id) => {
+  if (!id) return;
+  try {
+    const response = await axios.get(`${serverURL}/job-applicant/list/all/job/${id}`, { withCredentials: true });
+    if (response?.data?.success) {
+      setJobApplicants(response.data.applicants || []);
+    }
+  } catch (error) {
+    console.error("Error fetching applicants for job:", error.message);
+  }
+};
+
+// 4. Decision Engine: Accept or Reject Applicant
+const approveApplicant = async (applicantId, jobId, actionText) => {
+  const action = actionText.toLowerCase(); // 'accept' or 'reject'
+  if (!['accept', 'reject'].includes(action)) return console.error("Invalid action");
+
+  try {
+    const response = await axios.post(
+      `${serverURL}/job-applicant/list/all/applicant/${applicantId}/job/${jobId}/${action}`,
+      {},
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      console.log(`Applicant ${action}ed successfully`);
+      
+      // Update local state to reflect the decision immediately
+      setJobApplicants((prev) => 
+        prev.map(app => app._id === applicantId ? { ...app, status: action === 'accept' ? 'Accepted' : 'Rejected' } : app)
+      );
+      
+      // Refresh global list if necessary
+      await getAllApplicants();
+    }
+  } catch (error) {
+    console.error(`Error during applicant ${action}:`, error.response?.data?.message || error.message);
+  }
+};
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
 
   // *********************** ADMIN ROUTES *************************************************************************************
 
-  const [adminData, setAdminData] = useState(null);
-  const loginAdmin = async(data)=>{
-    try {
-      const response = await axios.post(`${serverURL}/admin/existing/login`, data);
-      if(response && response.data.success){
+  // --- [STATES: ADMIN] ---
+const [adminData, setAdminData] = useState(null);
+const [allAdmins, setAllAdmins] = useState([]);
 
-        console.log(response.data.message);
-        const data = response.data.admin;
-        const token = response.data.token;
-        const id = response.data.admin.id;
-        
-        const hash = response.data.admin.secureHash;
-        const loginTime = response.data.admin.loginTime;
-const userId = id;
-const secret = getHashSecret(loginTime.toString().slice(-4));
-const payload = userId.toString() + loginTime + secret;
-const secureHash = SHA256(payload).toString();
+// --- [METHODS: ADMIN] ---
 
-        // const secureHash = createHash('sha256').update(payload).digest('hex');
- 
-        if(hash === secureHash){
-          navigate(`/auth/admin/${hash}`);
-          console.log(response.data.message); 
-          setAdminToken(token);
-      setAdminId(id);
-      localStorage.setItem("adminId",id);
-      setAdminData(data);
+// 1. Admin Login (Cookie-Based)
+const loginAdmin = async (data) => {
+  try {
+    const response = await axios.post(`${serverURL}/admin/existing/login`, data, {
+      withCredentials: true, // MANDATORY: Allows browser to receive the HttpOnly session cookie
+    });
 
-        }
-        else{
-          console.log("False Login Attempt")
-        }
+    if (response?.data?.success) {
+      const admin = response.data.admin;
       
-      } 
+      // Update Global State
+      setAdminData(admin);
+      setIsLoggedIn(true);
+      setUser(admin); // Assuming admin is a type of user
+
+      // Navigation: Using the hash from backend purely for URL structure
+      const hash = admin.secureHash;
+      navigate(`/auth/admin/${hash}`);
       
-    } catch (error) {
-      console.log("Failed to login admin")
-      console.log(error)
+      console.log("Admin logged in successfully");
+    } else {
+      console.warn("False Login Attempt");
     }
+  } catch (error) {
+    console.error("Failed to login admin:", error.response?.data?.message || error.message);
   }
+};
 
-  const [allAdmins,setAllAdmins] = useState(null);
-  const getAllAdmins = async()=>{
-    try {
-        const response = await axios.get(`${serverURL}/admin/list/all`);
-        if(response && response.data.success){
-          const data = response.data.admins;
-          setAllAdmins(data);
-          
-        }
-      } catch (error) {
-        console.log(error)
-      }
+// 2. List All Admins (Protected View)
+const getAllAdmins = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/admin/list/all`, {
+      withCredentials: true, // Only an admin cookie should allow this
+    });
+
+    if (response?.data?.success) {
+      setAllAdmins(response.data.admins || []);
+    }
+  } catch (error) {
+    console.error("Error fetching admins:", error.message);
   }
+};
 
-  useEffect(()=>{
-    setAllAdmins(allAdmins);
-
-  },[allAdmins])
-
-
-
-
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
 
   // *********************** EMPLOYEE ROUTES *************************************************************************************
@@ -1106,98 +1016,93 @@ const getEmployeeByCompany = async(id)=>{
 }
 
 
-const [allCategories,setAllCategories] = useState(null);
-const geAllCategories = async()=>{
+// --- [STATES: DISCOVERY] ---
+const [allCategories, setAllCategories] = useState([]); // Array-first for dropdowns
+
+// --- [METHODS: DISCOVERY] ---
+
+// 1. Get Unique Industry Categories (Extracted from Authority List)
+const getAllCategories = async () => {
   try {
-    let dataArray = [];
-    const response = await axios.get(`${serverURL}/authority/list/all`);
-      if(response && response.data.success){
-        const data = response.data.authorities;
-        // console.log(data);
-        data.forEach((item)=>{
-          const category = item.industry;
-          if(!category){
-            console.log("No Categories found");
-          }
-          dataArray.push(category);
-        })
+    const response = await axios.get(`${serverURL}/authority/list/all`, { 
+      withCredentials: true 
+    });
 
-        setAllCategories(dataArray);
-      }
-      else{
-        console.log("Failed to get all categories");
-      }
-    
-  } catch (error) {
-    console.log(error);
-    console.log("Failed due to internal server error")
-  }
+    if (response?.data?.success) {
+      const authorities = response.data.authorities || [];
+      
+      // Use a Set to ensure categories are unique (no duplicates in UI)
+      const uniqueCategories = [
+        ...new Set(authorities.map(item => item.industry).filter(Boolean))
+      ];
 
-}
-
-
-
-const [savedJobsForThisUser, setSavedJobsForThisUser] = useState(null);
-const saveJob = async(seekerId,jobId)=>{
-  if(!seekerId && !jobId){
-    console.log("Provide both ids")
-  }
-  try {
-    const response = await axios.put(`${serverURL}/job/${jobId}/applicant/${seekerId}/save`);
-    if(response && response.data.success){
-      console.log("Saved the job Successfully");
-    }else{
-      console.log(response.data.message ||"Cannot save the job.");
-
+      setAllCategories(uniqueCategories);
     }
   } catch (error) {
-    console.log(error);
-    console.log("Failed due tp internal server");
-  }
-}
- 
-const getAllSavedJobs = async (seekerId) => {
-  if (!seekerId) {
-    console.log("Provide seeker ID");
-    return;
-  }
-
-  console.log(`🔗 Hitting: ${serverURL}/job/applicant/${seekerId}/saved-list/all`);
-
-  try {
-    const response = await axios.get(`${serverURL}/job/applicant/${seekerId}/saved-list/all`);
-
-    if (response?.data?.success && Array.isArray(response.data.savedJobs)) {
-      console.log("✅ Saved job IDs:", response.data.savedJobs);
-
-      const jobResponses = await Promise.all(
-        response.data.savedJobs.map((jobId) =>
-          axios
-            .get(`${serverURL}/job/list/all/${jobId}`)
-            .then((res) => {
-              if (res.data.success) return res.data.job;
-              console.log("❌ Failed to fetch job:", jobId);
-              return null;
-            })
-            .catch((err) => {
-              console.error(`⚠️ Error fetching job ${jobId}`, err);
-              return null;
-            })
-        )
-      );
-
-      const validJobs = jobResponses.filter((job) => job !== null);
-      console.log("✅ Final saved jobs:", validJobs);
-
-      setSavedJobsForThisUser(validJobs);
-    } else {
-      console.log(response?.data?.message || "No saved jobs found.");
-    }
-  } catch (error) {
-    console.error("💥 Error in getAllSavedJobs:", error);
-    console.log("Internal server error while fetching saved jobs.");
+    console.error("Error extracting categories:", error.response?.data?.message || error.message);
   }
 };
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
+
+
+
+// --- [STATES: SAVED JOBS] ---
+const [savedJobsForThisUser, setSavedJobsForThisUser] = useState([]); // Array-first for safe rendering
+
+// --- [METHODS: SAVED JOBS] ---
+
+// 1. Save/Bookmark a Job
+const saveJob = async (jobId) => {
+  // seekerId removed - backend identifies Seeker via Cookie
+  if (!jobId) return console.warn("Job ID is required to save");
+
+  try {
+    const response = await axios.put(
+      `${serverURL}/job/${jobId}/save`, // Simplified route
+      {}, 
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      console.log("Job saved/unsaved successfully");
+      // Optionally refresh the list to keep UI in sync
+      await getAllSavedJobs();
+    }
+  } catch (error) {
+    console.error("Save Job Error:", error.response?.data?.message || error.message);
+  }
+};
+
+// 2. Get All Saved Jobs (Optimized Single Request)
+const getAllSavedJobs = async () => {
+  try {
+    // We hit a 'me' endpoint so the backend knows which seeker's list to fetch
+    const response = await axios.get(
+      `${serverURL}/job/me/saved-list`, 
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      // We assume the backend now returns populated job objects, not just IDs
+      const jobs = response.data.savedJobs || [];
+      setSavedJobsForThisUser(jobs);
+      console.log("✅ Saved jobs updated:", jobs);
+    }
+  } catch (error) {
+    console.error("Error fetching saved jobs:", error.response?.data?.message || error.message);
+    setSavedJobsForThisUser([]);
+  }
+};
+
+// --- [LIFECYCLE] ---
+useEffect(() => {
+  if (isLoggedIn && user?.role === "Seeker") {
+    getAllSavedJobs();
+  }
+}, [isLoggedIn, user?.role]);
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
 const [typeNotifications, setTypeNotifications] = useState(null);
 
@@ -1252,43 +1157,48 @@ const getNotificationById = async(id)=>{
   
 }
 
-const [requirements,setRequirements] = useState(null);
+// --- [STATES: DISCOVERY & FILTERS] ---
+const [requirements, setRequirements] = useState([]); // Unique categories for dropdowns
+const [customJobs, setCustomJobs] = useState([]); // Filtered search results
 
-const getAllRequirementsForJob = async()=>{
+// --- [METHODS: DISCOVERY & SEARCH] ---
+
+// 1. Get All Filter Requirements (Locations, Skills, Roles)
+const getAllRequirementsForJob = async () => {
   try {
-    const response = await axios.get(`${serverURL}/job/list/all/requirements`);
-    if(response && response.data.success){
-        const data = response.data.categories;
-        setRequirements(data);
+    const response = await axios.get(
+      `${serverURL}/job/list/all/requirements`,
+      { withCredentials: true }
+    );
 
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
-    
-  } catch (error) {
-    console.log("Internal Server error");
-    console.log(error);
-  }
-
-}
-
-const [customJobs, setCustomJobs] = useState(null);
-
-const getCustomJobs = async(query)=>{
-  try {
-    const response = await axios.get(`${serverURL}/job/list/all/custom-query?${query}`);
-    if(response && response.data.success){
-      const data = response.data.jobs;
-      setCustomJobs(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
+    if (response?.data?.success) {
+      // Assuming 'categories' contains unique lists for filters
+      setRequirements(response.data.categories || []);
     }
   } catch (error) {
-    console.log(error);
-    console.log("Internal server error")
+    console.error("Filter Requirements Error:", error.response?.data?.message || "Internal Server Error");
   }
-}
+};
 
+// 2. Get Custom Filtered Jobs (Search Engine)
+const getCustomJobs = async (query) => {
+  // query should be a string like "location=Kolkata&role=Developer"
+  try {
+    const response = await axios.get(
+      `${serverURL}/job/list/all/custom-query?${query}`,
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      setCustomJobs(response.data.jobs || []);
+    }
+  } catch (error) {
+    console.error("Custom Search Error:", error.response?.data?.message || "Internal Server Error");
+    setCustomJobs([]); // Clear list on error
+  }
+};
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
 
 
@@ -1338,69 +1248,62 @@ const exitFromPlatform = ()=>{
   setUser_SeekerData(null);
 }
 
-const [allSkills,setAllSkills] = useState(null);
+// --- [STATES: SKILLS & RECRUITMENT] ---
+const [allSkills, setAllSkills] = useState([]); // List for seeker filter dropdowns
+const [customSuggestions, setCustomSuggestions] = useState([]); // Filtered seeker search results
+const [thisAuthAllApplicants, setThisAuthAllApplicants] = useState([]); // Employer-specific applicant list
 
-const getSkills = async()=>{
+// --- [METHODS: SKILLS & RECRUITMENT] ---
+
+// 1. Get All Skills (For Dropdowns/Filters)
+const getSkills = async () => {
   try {
-      const response = await axios.get(`${serverURL}/applicant/profile/list/all/factors`);
-      if(response && response.data.success){
-        const data = response.data.allSkills;
-        setAllSkills(data);
-      }else{
-        console.log(response.data.message || "Cannot get positive response");
-      }
-    
-  } catch (error) {
-    console.log(error)
-    console.log("Internal Server Error");
-  }
-
-}
-
-const [customSuggestions,setCustomSuggestions] = useState(null);
-const getCustomSuggestion = async(query)=>{
-  try {
-
-const response = await axios.get(`${serverURL}/applicant/profile/list/all/factors/custom-query?${query}`);
-
-    if(response && response.data.success){
-      const data = response.data.seekers;
-      setCustomSuggestions(data);
-
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
+    const response = await axios.get(
+      `${serverURL}/applicant/profile/list/all/factors`,
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      setAllSkills(response.data.allSkills || []);
     }
-    
   } catch (error) {
-    console.log("INternal Server error")
-    console.log(error);
-
+    console.error("Error fetching skills:", error.response?.data?.message || "Internal Server Error");
   }
-}
-useEffect(() => {
-  console.log("Updated Suggestions:", customSuggestions);
-  setCustomSuggestions(customSuggestions);
-}, [customSuggestions]);
+};
 
-const [thisAuthAllApplicants,setThisAuthAllApplicants] = useState(null);
-const getAllApplicantsForThisAuth = async(ownerId)=>{
-  if(!ownerId){
-    console.log("Provide ID");
-  }
+// 2. Custom Seeker Search (For Recruiters)
+const getCustomSuggestion = async (query) => {
+  // query: "skills=React,Node&location=Delhi"
   try {
-    const response = await axios.get(`${serverURL}/job-applicant/list/all/company/${ownerId}/data`);
-    if(response && response.data.success){
-      const data = response.data.allApplicantData;
-      setThisAuthAllApplicants(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
+    const response = await axios.get(
+      `${serverURL}/applicant/profile/list/all/factors/custom-query?${query}`,
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      setCustomSuggestions(response.data.seekers || []);
     }
-    
   } catch (error) {
-    console.log(error);
-    console.log("Internal Server Error")
+    console.error("Custom Suggestion Error:", error.response?.data?.message || "Internal Server Error");
+    setCustomSuggestions([]);
   }
-}
+};
+
+// 3. Get All Applicants for Logged-in Authority
+const getAllApplicantsForThisAuth = async () => {
+  try {
+    // Note: Manual ownerId removed. Backend uses Cookie to find the Authority's applicants.
+    const response = await axios.get(
+      `${serverURL}/job-applicant/list/all/company/me/data`, 
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      setThisAuthAllApplicants(response.data.allApplicantData || []);
+    }
+  } catch (error) {
+    console.error("Authority Applicant Fetch Error:", error.response?.data?.message || "Internal Server Error");
+  }
+};
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
 const resetOnExit = () => {
   // ✅ Clear localStorage (tokens, IDs)
@@ -1483,273 +1386,191 @@ useEffect(()=>{
 
 
 
-
+// --- [STATES: ANALYTICS] ---
 const [graphData, setGraphData] = useState({
-  pie: null,
-  bar: null,
-  line: null,
-  horBar: null,
-  grade: null,
-  brief:null
+  pie: null,     // Application Status
+  bar: null,     // Applications by Category
+  line: null,    // Applications by Date
+  horBar: null,  // Applications by Location
+  grade: null,   // Resume Score Breakdown (Radar)
+  brief: null    // AI Summary/Briefing
 });
 
-// Validation function
+// --- [HELPER: VALIDATION] ---
 const validateResponse = async (response) => {
-  if (response && response.data?.success) {
+  if (response?.data?.success) {
     return response.data.data;
   } else {
-    console.log(response?.data?.message || "Something went wrong!");
+    console.warn(response?.data?.message || "Data validation failed");
     return null;
   }
 };
 
-// 1. Fetch Pie Chart Data - Application Status
-const fetchApplicationStatusPie = async (seekerId) => {
-  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationStatusPie");
+// --- [METHODS: ANALYTICS] ---
 
+// 1. Fetch Pie Chart Data - Application Status
+const fetchApplicationStatusPie = async () => {
   try {
-    const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}`);
+    const response = await axios.get(`${serverURL}/graph/application/status/me`, { withCredentials: true });
     const data = await validateResponse(response);
-    if (data) {
-      setGraphData((prev) => ({ ...prev, pie: data }));
-    }
+    if (data) setGraphData((prev) => ({ ...prev, pie: data }));
   } catch (error) {
-    console.error("Error in fetchApplicationStatusPie:", error?.response || error);
-    console.log("Error fetching application status (pie)");
+    console.error("Error fetching pie data:", error.message);
   }
 };
 
 // 2. Fetch Line Chart Data - Applications by Date
-const fetchApplicationsByDate = async (seekerId) => {
-  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationsByDate");
-
+const fetchApplicationsByDate = async () => {
   try {
-    const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}/date`);
+    const response = await axios.get(`${serverURL}/graph/application/status/me/date`, { withCredentials: true });
     const data = await validateResponse(response);
-    if (data) {
-      setGraphData((prev) => ({ ...prev, line: data }));
-    }
+    if (data) setGraphData((prev) => ({ ...prev, line: data }));
   } catch (error) {
-    console.error("Error in fetchApplicationsByDate:", error?.response || error);
-    // console.log("Error fetching applications by date (line)");
+    console.error("Error fetching line data:", error.message);
   }
 };
 
 // 3. Fetch Bar Chart Data - Applications by Category
-const fetchApplicationsByCategory = async (seekerId) => {
-  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationsByCategory");
-
+const fetchApplicationsByCategory = async () => {
   try {
-    const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}/category`);
+    const response = await axios.get(`${serverURL}/graph/application/status/me/category`, { withCredentials: true });
     const data = await validateResponse(response);
-    if (data) {
-      setGraphData((prev) => ({ ...prev, bar: data }));
-    }
+    if (data) setGraphData((prev) => ({ ...prev, bar: data }));
   } catch (error) {
-    console.error("Error in fetchApplicationsByCategory:", error?.response || error);
-    console.log("Error fetching applications by category (bar)");
+    console.error("Error fetching bar data:", error.message);
   }
 };
 
 // 4. Fetch Horizontal Bar Chart - Applications by Location
-const fetchApplicationsByLocation = async (seekerId) => {
-  if (!seekerId) return console.log("Seeker ID missing in fetchApplicationsByLocation");
-
+const fetchApplicationsByLocation = async () => {
   try {
-    const response = await axios.get(`${serverURL}/graph/application/status/${seekerId}/location`);
+    const response = await axios.get(`${serverURL}/graph/application/status/me/location`, { withCredentials: true });
     const data = await validateResponse(response);
-    if (data) {
-      setGraphData((prev) => ({ ...prev, horBar: data }));
-    }
+    if (data) setGraphData((prev) => ({ ...prev, horBar: data }));
   } catch (error) {
-    console.error("Error in fetchApplicationsByLocation:", error?.response || error);
-    console.log("Error fetching applications by location (horizontal bar)");
+    console.error("Error fetching horizontal bar data:", error.message);
   }
-}; 
+};
 
 // 5. Fetch Radar Chart - Resume Score Breakdown
-const fetchResumeGrade = async (seekerId) => {
-  if (!seekerId) return console.log("Seeker ID missing in fetchResumeGrade");
-
+const fetchResumeGrade = async () => {
   try {
-    const response = await axios.get(`${serverURL}/graph/applicant-profile/${seekerId}/grade`);
+    const response = await axios.get(`${serverURL}/graph/applicant-profile/me/grade`, { withCredentials: true });
     const data = await validateResponse(response);
-    if (data) {
-      setGraphData((prev) => ({ ...prev, grade: data }));
-    }
+    if (data) setGraphData((prev) => ({ ...prev, grade: data }));
   } catch (error) {
-    console.error("Error in fetchResumeGrade:", error?.response || error);
-    console.log("Error fetching resume grade (radar)");
+    console.error("Error fetching radar data:", error.message);
   }
-}; 
- 
+};
 
+// --- [LIFECYCLE] ---
+useEffect(() => {
+  if (isLoggedIn && user?.role === "Seeker") {
+    fetchApplicationStatusPie();
+    fetchApplicationsByDate();
+    fetchApplicationsByCategory();
+    fetchApplicationsByLocation();
+    fetchResumeGrade();
+  }
+}, [isLoggedIn, user?.role]);
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
+
+// --- [STATES: RECOMMENDATIONS] ---
 const [suggestedJobsForThisSeeker, setSuggestedJobsForThisSeeker] = useState({
   suggestedJobs: [],
   totalMatches: 0, 
 });
 
-const getSuggestedJobsForThisSeeker = async (seekerId) => {
-  if (!seekerId) {
-    console.log("Seeker ID is required.");
-    return;
-  }
+// --- [METHODS: RECOMMENDATIONS] ---
 
+// 1. Get Personalized Job Feed (AI/Skill Based)
+const getSuggestedJobsForThisSeeker = async () => {
+  // Manual seekerId removed - backend identifies Seeker via Cookie
   try {
-    const response = await axios.get(`${serverURL}/dashboard/suggested-jobs/${seekerId}`);
+    const response = await axios.get(
+      `${serverURL}/dashboard/suggested-jobs/me`, 
+      { withCredentials: true } // MANDATORY: Sends the auth cookie
+    );
 
     if (response?.data?.success) {
       const { suggestedJobs, totalMatches } = response.data;
 
       setSuggestedJobsForThisSeeker({
-        suggestedJobs,
-        totalMatches,
+        suggestedJobs: suggestedJobs || [],
+        totalMatches: totalMatches || 0,
       });
-    } else {
-      console.log(response?.data?.message || "Failed to fetch suggested jobs.");
     }
   } catch (error) {
-    console.error("Error fetching suggested jobs:", error);
-    console.log("Internal Server Error");
+    console.error("Error fetching recommendations:", error.response?.data?.message || error.message);
+    // Reset state on failure to avoid showing stale recommendations
+    setSuggestedJobsForThisSeeker({ suggestedJobs: [], totalMatches: 0 });
   }
 };
 
+// --- [LIFECYCLE] ---
+useEffect(() => {
+  // Trigger suggestions as soon as the Seeker is verified
+  if (isLoggedIn && user?.role === "Seeker") {
+    getSuggestedJobsForThisSeeker();
+  }
+}, [isLoggedIn, user?.role]);
+
+// --- [FINAL CONSOLIDATED EXPORT] ---
+
 
 // AUTHORITY GRAPHS
-const [applicantStatus,setApplicantStatus] = useState(null);
-const getApplicantsStatus = async(id)=>{
-   if(!id){
-    console.log("Provide AUthority ID")
-  }  
+// --- [STATES: AUTHORITY ANALYTICS] ---
+const [authorityStats, setAuthorityStats] = useState({
+  status: null,     // Pie: Accepted/Rejected/Pending
+  weekly: null,     // Line: Application trends over time
+  perJob: null,     // Bar: High-performing vs Low-performing posts
+  location: null,   // Map/HorBar: Talent density by city
+  role: null,       // Bar: Applications by Job Title
+  type: null,       // Pie: Full-time vs Internship
+  category: null    // Bar: Applications by Industry/Category
+});
+
+// --- [METHODS: AUTHORITY ANALYTICS] ---
+
+const fetchAuthorityAnalytics = async (endpoint, key) => {
   try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/status`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicantStatus(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
+    const response = await axios.get(`${serverURL}/graph/job-applications/me/${endpoint}`, { 
+      withCredentials: true 
+    });
     
-  } catch (error) {
-    console.log("Internal Server Error",error);
-  }
-}
-
-const [applicantStatusWeekly,setApplicantStatusWeekly] = useState(null);
-const getApplicantsStatusWeekly = async(id)=>{
-  if(!id){
-    console.log("Provide AUthority ID")
-  }
-  try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/weekly`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicantStatusWeekly(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
+    if (response?.data?.success) {
+      setAuthorityStats(prev => ({ ...prev, [key]: response.data.data }));
     }
-    
   } catch (error) {
-    console.log("Internal Server Error",error);
+    console.error(`Error fetching ${key} stats:`, error.message);
   }
-}
+};
 
-const [applicationCountPerJob,setApplicationCountPerJob] = useState(null);
-const getApplicationCountPerJob = async(id)=>{
-if(!id){
-    console.log("Provide AUthority ID")
-  }
-  try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicationCountPerJob(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
-    
-  } catch (error) {
-    console.log("Internal Server Error",error);
-  }
-}
+// Individual triggers (Wrappers for the generic fetcher)
+const getApplicantsStatus = () => fetchAuthorityAnalytics('count/status', 'status');
+const getApplicantsStatusWeekly = () => fetchAuthorityAnalytics('count/weekly', 'weekly');
+const getApplicationCountPerJob = () => fetchAuthorityAnalytics('count', 'perJob');
+const getApplicationsByLocations = () => fetchAuthorityAnalytics('count/location', 'location');
+const getApplicationsByRoles = () => fetchAuthorityAnalytics('count/role', 'role');
+const getApplicationsByTypes = () => fetchAuthorityAnalytics('count/type', 'type');
+const getApplicationsByCategory = () => fetchAuthorityAnalytics('count/category', 'category');
 
-const [applicationCountByLocation,setApplicationCountByLocation] = useState(null);
-const getApplicationsByLocations = async(id)=>{
-  if(!id){
-    console.log("Provide AUthority ID")
+// --- [LIFECYCLE] ---
+useEffect(() => {
+  // Automatically load the full dashboard if the user is an Authority
+  if (isLoggedIn && user?.role === "Authority") {
+    getApplicantsStatus();
+    getApplicantsStatusWeekly();
+    getApplicationCountPerJob();
+    getApplicationsByLocations();
+    getApplicationsByRoles();
+    getApplicationsByTypes();
+    getApplicationsByCategory();
   }
-  try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/location`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicationCountByLocation(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
-    
-  } catch (error) {
-    console.log("Internal Server Error",error);
-  }
-}
+}, [isLoggedIn, user?.role]);
 
-const [applicationCountByRole,setApplicationCountByRole] = useState(null);
-const getApplicationsByRoles = async(id)=>{
-  if(!id){
-    console.log("Provide AUthority ID")
-  }
-  try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/role`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicationCountByRole(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
-    
-  } catch (error) {
-    console.log("Internal Server Error",error);
-  }
-}
-
-const [applicationCountByType,setApplicationCountByType] = useState(null);
-const getApplicationsByTypes = async(id)=>{
-  if(!id){
-    console.log("Provide AUthority ID")
-  }
-  try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/type`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicationCountByType(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
-    
-  } catch (error) {
-    console.log("Internal Server Error",error);
-  }
-}
-
-const [applicationCountByCategory,setApplicationCountByCategory] = useState(null);
-const getApplicationsByCategory = async(id)=>{
-  if(!id){
-    console.log("Provide AUthority ID")
-  }
-  try {
-    const response = await axios.get(`${serverURL}/graph/job-applications/${id}/count/category`);
-    if(response && response.data.success){
-      const data = response.data.data;
-      setApplicationCountByCategory(data);
-    }else{
-      console.log(response.data.message || "Cannot get positive response")
-    }
-    
-  } catch (error) {
-    console.log("Internal Server Error",error);
-  }
-}
-
-
+// --- [FINAL CONSOLIDATED EXPORT] ---
 
 
 // *********************** <MEssage> ROutes *************************************************************************************
@@ -1852,15 +1673,557 @@ const readMessages = async(senderId,receiverId)=>{
 
 
 
+const [pendingAuthorities, setPendingAuthorities] = useState([]);
+const [flaggedJobs, setFlaggedJobs] = useState([]);
+const [adminTickets, setAdminTickets] = useState([]);
+const [adminDashboardStats, setAdminDashboardStats] = useState(null);
+const [userLogs, setUserLogs] = useState([]);
 
 
 
+// --- Auth & Security ---
+const updateAdminPassword = async (data) => {
+  try {
+    const response = await axios.patch(`${serverURL}/admin/update-password`, data, { withCredentials: true });
+    if (response?.data?.success) console.log("Password updated successfully");
+  } catch (error) {
+    console.error("Password Update Error:", error.response?.data?.message);
+  }
+};
+
+// --- User & Activity ---
+const getUserActivityLogs = async (userId) => {
+  try {
+    const response = await axios.get(`${serverURL}/admin/users/${userId}/logs`, { withCredentials: true });
+    if (response?.data?.success) setUserLogs(response.data.logs);
+  } catch (error) {
+    console.error("Error fetching user logs:", error.message);
+  }
+};
+
+// --- Authority Moderation ---
+const getPendingAuthorities = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/admin/authorities/pending`, { withCredentials: true });
+    if (response?.data?.success) setPendingAuthorities(response.data.authorities);
+  } catch (error) {
+    console.error("Error fetching pending authorities:", error.message);
+  }
+};
+
+const verifyAuthority = async (id, status) => {
+  try {
+    const response = await axios.patch(`${serverURL}/admin/authorities/${id}/verify`, { status }, { withCredentials: true });
+    if (response?.data?.success) await getPendingAuthorities(); // Refresh list
+  } catch (error) {
+    console.error("Verification Error:", error.message);
+  }
+};
+
+// --- Job Moderation ---
+const getFlaggedJobs = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/admin/jobs/flagged`, { withCredentials: true });
+    if (response?.data?.success) setFlaggedJobs(response.data.jobs);
+  } catch (error) {
+    console.error("Error fetching flagged jobs:", error.message);
+  }
+};
+
+const updateJobStatus = async (jobId, status) => {
+  try {
+    const response = await axios.patch(`${serverURL}/admin/jobs/${jobId}/status`, { status }, { withCredentials: true });
+    if (response?.data?.success) await getFlaggedJobs();
+  } catch (error) {
+    console.error("Status Update Error:", error.message);
+  }
+};
+
+// --- Support & Global Comm ---
+const getAllTickets = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/admin/tickets`, { withCredentials: true });
+    if (response?.data?.success) setAdminTickets(response.data.tickets);
+  } catch (error) {
+    console.error("Error fetching tickets:", error.message);
+  }
+};
+
+const broadcastNotification = async (notifData) => {
+  try {
+    const response = await axios.post(`${serverURL}/admin/notifications/broadcast`, notifData, { withCredentials: true });
+    if (response?.data?.success) console.log("Broadcast successful");
+  } catch (error) {
+    console.error("Broadcast Error:", error.message);
+  }
+};
+
+// --- Admin Analytics ---
+const getAdminDashboardStats = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/admin/stats/overview`, { withCredentials: true });
+    if (response?.data?.success) setAdminDashboardStats(response.data.stats);
+  } catch (error) {
+    console.error("Stats Error:", error.message);
+  }
+};
 
 
+const [companyApplicantsData, setCompanyApplicantsData] = useState([]);
+
+// --- [APPLICANTS & HIRING REFINEMENTS] ---
+
+// 1. Get ALL Applicants for a specific Company (By Company/Authority ID)
+// Useful for Public/Admin views or cross-referencing
+const getApplicantFromCompanyId = async (companyId) => {
+  if (!companyId) return console.warn("Company ID is required");
+  try {
+    const response = await axios.get(`${serverURL}/job-applicant/list/all/company/${companyId}`, { withCredentials: true });
+    if (response?.data?.success) {
+      setCompanyApplicantsData(response.data.applicants || []);
+    }
+  } catch (error) {
+    console.error("Error fetching applicants by company ID:", error.message);
+  }
+};
+
+// 2. Get Detailed Applicant DATA from Company (The 'data' specific route)
+// This usually returns more populated/statistical info for the dashboard
+const getApplicantDATAFromCompanyId = async (companyId) => {
+  // If we are the company, we use 'me', otherwise we use the provided ID
+  const id = companyId || "me"; 
+  try {
+    const response = await axios.get(`${serverURL}/job-applicant/list/all/company/${id}/data`, { withCredentials: true });
+    if (response?.data?.success) {
+      setThisAuthAllApplicants(response.data.allApplicantData || []);
+    }
+  } catch (error) {
+    console.error("Error fetching detailed company applicant data:", error.message);
+  }
+};
+
+// 3. Get Applicants for a specific Job within a specific Company
+const getApplicantFromCompanyIdAndJobId = async (companyId, jobId) => {
+  if (!companyId || !jobId) return console.warn("Both Company and Job IDs are required");
+  try {
+    const response = await axios.get(`${serverURL}/job-applicant/list/all/company/${companyId}/job/${jobId}`, { withCredentials: true });
+    if (response?.data?.success) {
+      // Reusing singleApplicantData if it returns one, or jobApplicants if it's a list
+      // Adjust based on your Controller's return type
+      setSingleApplicantData(response.data.applicant); 
+    }
+  } catch (error) {
+    console.error("Error fetching job-specific company applicants:", error.message);
+  }
+};
+
+
+
+// --- [AUTHORITY ENTITY REFINEMENTS] ---
+
+// 1. Remove/Delete Company (Admin or Owner)
+const removeCompany = async (authorityId) => {
+  if (!authorityId) return console.warn("Authority ID is required for removal");
+  try {
+    const response = await axios.delete(
+      `${serverURL}/authority/list/all/${authorityId}/remove`, 
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      console.log("Company removed successfully");
+      // Refresh the list after deletion
+      await getAllAuthorities();
+    }
+  } catch (error) {
+    console.error("Error removing company:", error.response?.data?.message || error.message);
+  }
+};
+
+// 2. Update Authority Preferred Skills (AI Matching)
+// Note: This matches your /list/all/update-skills route
+const updateAuthoritiesPreferredSkills = async (skillsArray) => {
+  if (!skillsArray) return console.warn("Skills array is required");
+  try {
+    const response = await axios.put(
+      `${serverURL}/authority/list/all/update-skills`, 
+      { skills: skillsArray }, 
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      console.log("Preferred skills updated for matching");
+      // Update local authData to reflect new skills
+      setAuthData(response.data.authority);
+    }
+  } catch (error) {
+    console.error("Error updating preferred skills:", error.message);
+  }
+};
+
+// 3. Get Company by Owner (Refining naming consistency)
+// Your route uses :ownerId, but our 'getMyCompanyProfile' uses 'me'. 
+// Use this version for Admin views or specific owner lookups.
+const getCompanyByOwnerId = async (ownerId) => {
+  if (!ownerId) return console.warn("Owner ID is required");
+  try {
+    const response = await axios.get(
+      `${serverURL}/authority/list/all/owner/${ownerId}`, 
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      setOneAuthData(response.data.authority);
+    }
+  } catch (error) {
+    console.error("Error fetching company by owner:", error.message);
+  }
+};
+
+
+const [similarJobs, setSimilarJobs] = useState([]); // For "Jobs you might like"
+const [reviewQueue, setReviewQueue] = useState([]); // For the Employer's "Review Queue"
+
+// --- [JOB LIFECYCLE & MODERATION] ---
+
+/**
+ * 1. Toggle Job Status (Open/Close/Pause)
+ * Path: /job/status/toggle/:jobId
+ */
+const toggleJobStatus = async (jobId) => {
+  if (!jobId) return;
+  try {
+    const response = await axios.patch(`${serverURL}/job/status/toggle/${jobId}`, {}, { withCredentials: true });
+    if (response?.data?.success) {
+      console.log("Job status updated");
+      // Refresh the specific job and the authority's list
+      await getSingleJobById(jobId);
+      await getJobByAuthority(); 
+    }
+  } catch (error) {
+    console.error("Error toggling job status:", error.message);
+  }
+};
+
+/**
+ * 2. Get Similar Jobs (AI/Contextual matching)
+ * Path: /job/list/all/similar/:jobId
+ */
+const getSimilarJobs = async (jobId) => {
+  if (!jobId) return;
+  try {
+    const response = await axios.get(`${serverURL}/job/list/all/similar/${jobId}`);
+    if (response?.data?.success) {
+      setSimilarJobs(response.data.jobs || []);
+    }
+  } catch (error) {
+    console.error("Error fetching similar jobs:", error.message);
+  }
+};
+
+// --- [EMPLOYER REVIEW QUEUE] ---
+
+/**
+ * 3. Get Applicants for Review (Persistent Queue)
+ * Path: /job/applicants/review/:jobId
+ */
+const getApplicantsForReview = async (jobId) => {
+  if (!jobId) return;
+  try {
+    const response = await axios.get(`${serverURL}/job/applicants/review/${jobId}`, { withCredentials: true });
+    if (response?.data?.success) {
+      setReviewQueue(response.data.applicants || []);
+    }
+  } catch (error) {
+    console.error("Error fetching review queue:", error.message);
+  }
+};
+
+/**
+ * 4. Update Application Status (Direct Decision)
+ * Path: /job/applicant/decision/:applicantId
+ */
+const updateApplicationStatus = async (applicantId, status) => {
+  // status: 'Accepted', 'Rejected', 'Interviewing', etc.
+  try {
+    const response = await axios.patch(
+      `${serverURL}/job/applicant/decision/${applicantId}`, 
+      { status }, 
+      { withCredentials: true }
+    );
+    if (response?.data?.success) {
+      console.log(`Applicant status updated to ${status}`);
+      // Refresh the queue to show updated status badges
+      setReviewQueue(prev => prev.map(app => app._id === applicantId ? { ...app, status } : app));
+    }
+  } catch (error) {
+    console.error("Decision Update Error:", error.message);
+  }
+};
+
+// --- [AUTH REFRESH & SESSION MANAGEMENT] ---
+
+/**
+ * 1. Refresh Access Token
+ * Usually triggered by an Axios Interceptor on 401 errors.
+ * Path: /auth/refresh-token
+ */
+const refreshSessionToken = async () => {
+  try {
+    const response = await axios.post(
+      `${serverURL}/auth/refresh-token`, 
+      {}, 
+      { withCredentials: true }
+    );
+
+    if (response?.data?.success) {
+      console.log("Session token refreshed successfully");
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Session expired. Please log in again.");
+    setIsLoggedIn(false);
+    setUser(null);
+    return false;
+  }
+};
+
+useEffect(() => {
+  const interceptor = axios.interceptors.response.use(
+    (response) => response, // Pass through successful responses
+    async (error) => {
+      const originalRequest = error.config;
+
+      // If error is 401 and we haven't tried to refresh yet
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        const refreshed = await refreshSessionToken();
+
+        if (refreshed) {
+          // Retry the original request that failed
+          return axios(originalRequest);
+        }
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return () => axios.interceptors.response.eject(interceptor);
+}, []);
+
+/**
+ * 2. Logout / Exit Platform
+ * Clears HttpOnly Cookies on the server and resets local state.
+ * Path: /auth/logout (Ensure this route exists in your backend)
+ */
+// const exitFromPlatform = async () => {
+//   try {
+//     const response = await axios.post(
+//       `${serverURL}/auth/logout`, 
+//       {}, 
+//       { withCredentials: true }
+//     );
+
+//     if (response?.data?.success) {
+//       // 1. Reset all Auth States
+//       setUser(null);
+//       setIsLoggedIn(false);
+//       setUserSeekerData(null);
+//       setAuthData(null);
+//       setAdminData(null);
+      
+//       // 2. Clear any lingering non-sensitive storage
+//       localStorage.clear(); 
+      
+//       // 3. Redirect to landing/login
+//       navigate("/");
+//       console.log("Logged out safely.");
+//     }
+//   } catch (error) {
+//     console.error("Logout failed:", error.message);
+//     // Force local reset even if server call fails
+//     setIsLoggedIn(false);
+//     setUser(null);
+//   }
+// };
+
+
+
+const [myApplications, setMyApplications] = useState([]); // List of jobs applied to
+const [applicationDetails, setApplicationDetails] = useState(null); // Specific app status/feedback
+const [resumeUpdateStatus, setResumeUpdateStatus] = useState(false);
+const [matchedAuthorities, setMatchedAuthorities] = useState([]); // Companies looking for your skills
 // *********************** Notification ROutes *************************************************************************************
+// --- [SEEKER PROFILE & RESUME] ---
 
+/**
+ * 1. Update Resume (Multipart/Form-Data)
+ * Path: /applicant/profile/resume-update
+ */
+const updateSeekerResume = async (formData) => {
+  try {
+    const response = await axios.patch(
+      `${serverURL}/applicant/profile/resume-update`,
+      formData,
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    if (response?.data?.success) {
+      setResumeUpdateStatus(true);
+      await getMySeekerProfile(); // Refresh profile data
+    }
+  } catch (error) {
+    console.error("Resume Update Error:", error.response?.data?.message);
+  }
+};
+
+// --- [APPLICATIONS & TRACKING] ---
+
+
+const getAppliedApplications = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/applicant/applications`, { withCredentials: true });
+    if (response?.data?.success) {
+      setMyApplications(response.data.applications || []);
+    }
+  } catch (error) {
+    console.error("Error fetching applications:", error.message);
+  }
+};
+
+/**
+ * 3. Get Specific Application Details (Feedback/Timeline)
+ * Path: /applicant/applications/:id
+ */
+const getApplicationDetails = async (applicationId) => {
+  try {
+    const response = await axios.get(`${serverURL}/applicant/applications/${applicationId}`, { withCredentials: true });
+    if (response?.data?.success) {
+      setApplicationDetails(response.data.application);
+    }
+  } catch (error) {
+    console.error("Error fetching application details:", error.message);
+  }
+};
+
+// --- [AI & MATCHING] ---
+
+/**
+ * 4. Get Companies Matching Your Profile (Wanted Authorities)
+ * Path: /applicant/authorities/matching/:seekerId
+ */
+// const getWantedAuthorities = async (seekerId) => {
+//   const id = seekerId || userSeekerData?._id;
+//   if (!id) return;
+//   try {
+//     const response = await axios.get(`${serverURL}/applicant/authorities/matching/${id}`, { withCredentials: true });
+//     if (response?.data?.success) {
+//       setMatchedAuthorities(response.data.authorities || []);
+//     }
+//   } catch (error) {
+//     console.error("Matching Authorities Error:", error.message);
+//   }
+// };
+
+/**
+ * 5. Toggle Save Job (Unified Bookmark Method)
+ * Path: /applicant/jobs/save/:jobId
+ */
+const toggleSaveJob = async (jobId) => {
+  try {
+    const response = await axios.patch(`${serverURL}/applicant/jobs/save/${jobId}`, {}, { withCredentials: true });
+    if (response?.data?.success) {
+      // Refresh the saved jobs list
+      await getAllSavedJobs();
+    }
+  } catch (error) {
+    console.error("Toggle Save Error:", error.message);
+  }
+};
+
+
+const [userSessions, setUserSessions] = useState([]); // Active login sessions
+const [publicProfile, setPublicProfile] = useState(null); // For viewing others
+const [authError, setAuthError] = useState(null); // For specific login/reset feedback
 // Assuming assets.img is your default logo placeholder (if needed)
+// --- [ACCOUNT SECURITY & RECOVERY] ---
 
+/**
+ * 1. Forgot Password (Request Link)
+ * Path: /user/auth/forgot-password
+ */
+const requestPasswordReset = async (email) => {
+  try {
+    const response = await axios.post(`${serverURL}/user/auth/forgot-password`, { email });
+    if (response?.data?.success) console.log("Reset link sent to email");
+  } catch (error) {
+    setAuthError(error.response?.data?.message);
+  }
+};
+
+/**
+ * 2. Change Password (While Logged In)
+ * Path: /user/change-password
+ */
+const updateAccountPassword = async (passwords) => {
+  // passwords: { oldPassword, newPassword }
+  try {
+    const response = await axios.patch(`${serverURL}/user/change-password`, passwords, { withCredentials: true });
+    if (response?.data?.success) console.log("Password changed successfully");
+  } catch (error) {
+    console.error("Change Password Error:", error.message);
+  }
+};
+
+// --- [SESSION & IDENTITY] ---
+
+/**
+ * 3. Get Active User Sessions
+ * Path: /user/auth/sessions
+ */
+const getUserSessions = async () => {
+  try {
+    const response = await axios.get(`${serverURL}/user/auth/sessions`, { withCredentials: true });
+    if (response?.data?.success) {
+      setUserSessions(response.data.sessions || []);
+    }
+  } catch (error) {
+    console.error("Error fetching sessions:", error.message);
+  }
+};
+
+/**
+ * 4. Deactivate Account (Self-service)
+ * Path: /user/deactivate
+ */
+const deactivateMyAccount = async () => {
+  if (!window.confirm("Are you sure? This action is irreversible.")) return;
+  try {
+    const response = await axios.delete(`${serverURL}/user/deactivate`, { withCredentials: true });
+    if (response?.data?.success) {
+      await exitFromPlatform(); // Log out and clear state
+    }
+  } catch (error) {
+    console.error("Deactivation Error:", error.message);
+  }
+};
+
+// --- [PUBLIC DISCOVERY] ---
+
+/**
+ * 5. Get Public Profile (By Username)
+ * Path: /user/profile/:username
+ */
+const getPublicUserProfile = async (username) => {
+  try {
+    const response = await axios.get(`${serverURL}/user/profile/${username}`);
+    if (response?.data?.success) {
+      setPublicProfile(response.data.user);
+    }
+  } catch (error) {
+    console.error("Profile not found:", error.message);
+  }
+};
 // const companyDataArray = [
 //   {
 //     owner: "68862d4f6c6f806d4c69e21c",
@@ -2148,88 +2511,102 @@ const readMessages = async(senderId,receiverId)=>{
  
   // *********************** ALL EXPORTS *************************************************************************************
 
-  const contextObj = {
- readMessages,  getAllPingsByUserId,allPingsForThisUser ,getAllAdmins,allAdmins,sendMessage,getMessages,allMessages,
-    getUserDataBySeekerId,
-    singleUserData,
-    registerUser,
-    userData,
-    setUserData,
-    registerIndicator,
-    setRegisterIndicator,
-    userId,
-    setAdminId,
-    setAdminToken,
-    setAuthorityId,
-    setAuthorityToken,
-    setSeekerToken,
-    setSeekerId,
-    seekerId,
-    seekerToken, 
-    userToken,
-    authorityToken,
-    authorityId,
-    adminId,
-    adminToken,
-    getUserDataById,
-    registerForAuthority,
-    authData,
-    getCompanyByOwnerId,
-    createJob,
-    jobs,
-    getJobByAuthority,
-    getAllJobsFromDB,
-    allJobs,
-    deleteJob,
-    getAllUsersList,
-    allUsersList,
-    removeUserByID,
-    blockUserByID,
-    createSeekerProfile,initProfileData,setInitProfileData,
-    getAllSeekersList,
-    seekerData,
-    getSeekerDataById,
-    allSeekersList,
-    removeSeekerByID,
-    getAllAuthorities,
-    getMatchedData,matchedData,
-    allAuthorities,
-    getAuthorityByID,
-    oneAuthData,
-    loginAdmin,
-    adminData,
-    getSeekerDataByUserId,
-    user_seekerData,
-    securePath,
-    // Job exports
-    getSingleJobById,
-    singleJob,
-    applyForJob,
-    applicant_id,
-    // applicant exports
-    getAllApplicants,allApplicants,getApplicantById,singleApplicantData,getApplicantByJobAndCompanyId,approveApplicant,getApplicantsByJobId,jobApplicants,getApplicantBySeekerId,
-    // employee exports
-    getAllEmployee,allEmployees,getEmployeeById,singleEmployee,removeEmployee,getEmployeeByJobId,thisJobEmployee,getUserDataByEmpId,empProfileData,getEmployeeByCompany,thisAuthAllEmployees,
-    
-    // UTILITY 
-    convertToStandardDateTime,geAllCategories,allCategories,saveJob,savedJobsForThisUser,getAllSavedJobs,exitFromPlatform,getNotifications_ByType,typeNotifications,getNotificationById,singleNotificationData,getAllRequirementsForJob,requirements,getCustomJobs,customJobs,getSkills,allSkills,getCustomSuggestion,customSuggestions,setCustomSuggestions,
-    getAllApplicantsForThisAuth,thisAuthAllApplicants,resetOnExit,getUserIdByToken,globalId,
-    // GRAPHS
-    fetchApplicationStatusPie,fetchApplicationsByCategory,fetchApplicationsByDate,fetchApplicationsByLocation,fetchResumeGrade,graphData,getSuggestedJobsForThisSeeker,suggestedJobsForThisSeeker,
-    getApplicantsStatusWeekly,
-    getApplicationsByLocations,
-    getApplicationCountPerJob,
-    getApplicantsStatus,
-    getApplicationsByRoles,
-    getApplicationsByTypes,
-    getApplicationsByCategory,
-    applicationCountByCategory,applicationCountByType,applicationCountByRole,applicationCountByLocation,applicantStatusWeekly,applicationCountPerJob,
-applicantStatus,
-editAuthProfile,
-getWantedAuthorities,
-wantedAuth,getAllCompanyNames,allCompanies,getSeekerDashboardData,dashboardData
+   const contextObj = {
+  // --- [1. USER & AUTH CORE] ---
+  user, isLoggedIn, loading, globalId, registerIndicator,
+  checkAuthStatus, registerUser, getUserIdByToken, exitFromPlatform, resetOnExit,
 
-  }; 
+  // --- [2. SEEKER ENTITY] ---
+  userSeekerData, seekerData, allSeekersList, dashboardData, initProfileData, 
+  singleUserData, suggestedJobsForThisSeeker, savedJobsForThisUser,
+  getMySeekerProfile, createSeekerProfile, getSeekerDataById, getSeekerDashboardData, 
+  getAllSeekersList, getUserDataBySeekerId, saveJob, getAllSavedJobs, getSuggestedJobsForThisSeeker,seekerProfile,authorityProfile,userData,getUserData,getOtherUserDataById,editProfile,
+
+  // --- [3. AUTHORITY (EMPLOYER) ENTITY] ---
+  authData, oneAuthData, allAuthorities, allCompanies, matchedData, 
+  allSkills, allCategories, wantedAuth,
+  registerForAuthority, getMyCompanyProfile, editAuthProfile, getAuthorityByID, 
+  getAllAuthorities, getAllCompanyNames, getMatchedData, getSkills, 
+  getWantedAuthorities, getAllCategories,removeCompany,
+  updateAuthoritiesPreferredSkills,
+  getCompanyByOwnerId,
+
+  // --- [4. EMPLOYEE ENTITY] ---
+  allEmployees, singleEmployee, thisJobEmployee, empProfileData, thisAuthAllEmployees,
+  getAllEmployee, getEmployeeById, removeEmployee, getEmployeeByJobId, 
+  getEmployeeByCompany, getUserDataByEmpId,
+
+  // --- [5. JOB MARKETPLACE] ---
+  jobs, allJobs, singleJob, customJobs, requirements,
+  createJob, getJobByAuthority, getAllJobsFromDB, deleteJob, 
+  getSingleJobById, applyForJob, getCustomJobs, getAllRequirementsForJob,similarJobs,
+  reviewQueue,
+
+  // Methods
+  toggleJobStatus,
+  getSimilarJobs,
+  getApplicantsForReview,
+  updateApplicationStatus,
+
+  // --- [6. APPLICANTS & HIRING] ---
+  allApplicants, singleApplicantData, jobApplicants, applicantId, 
+  thisAuthAllApplicants, customSuggestions,
+  getAllApplicants, getApplicantById, getApplicantsByJobId, 
+  approveApplicant, getAllApplicantsForThisAuth, getCustomSuggestion,
+  companyApplicantsData,
+
+  // Methods
+  getApplicantFromCompanyId,
+  getApplicantDATAFromCompanyId,
+  getApplicantFromCompanyIdAndJobId,
+
+  // --- [7. ADMIN & MODERATION] ---
+  adminData, allAdmins, allUsersList,
+  loginAdmin, getAllAdmins, getAllUsersList, removeUserByID, 
+  blockUserByID, removeSeekerByID,pendingAuthorities, flaggedJobs, adminTickets, adminDashboardStats, userLogs,
+
+  // Methods
+  updateAdminPassword, getUserActivityLogs, getPendingAuthorities, 
+  verifyAuthority, getFlaggedJobs, updateJobStatus, 
+  getAllTickets, broadcastNotification, getAdminDashboardStats,
+
+  // --- [8. MESSAGING & NOTIFICATIONS] ---
+  allMessages, allPingsForThisUser, typeNotifications, singleNotificationData,
+  sendMessage, getMessages, readMessages, getAllPingsByUserId, 
+  getNotifications_ByType, getNotificationById,
+
+  // --- [9. ANALYTICS & GRAPHS] ---
+  graphData, authorityStats,
+  fetchApplicationStatusPie, fetchApplicationsByCategory, fetchApplicationsByDate, 
+  fetchApplicationsByLocation, fetchResumeGrade, getApplicantsStatus, 
+  getApplicantsStatusWeekly, getApplicationCountPerJob, getApplicationsByLocations, 
+  getApplicationsByRoles, getApplicationsByTypes, getApplicationsByCategory,
+
+  // --- [10. UTILITIES] ---
+  convertToStandardDateTime,refreshSessionToken,
+  myApplications,
+  applicationDetails,
+  resumeUpdateStatus,
+  matchedAuthorities,
+
+  // Methods
+  updateSeekerResume,
+  getAppliedApplications,
+  getApplicationDetails,
+  
+  toggleSaveJob,userSessions,
+  publicProfile,
+  authError,
+
+  // Methods
+  requestPasswordReset,
+  updateAccountPassword,
+  getUserSessions,
+  deactivateMyAccount,
+  getPublicUserProfile
+};
+
+
 
   return (
     <WorkContext.Provider value={contextObj}>{children}</WorkContext.Provider>

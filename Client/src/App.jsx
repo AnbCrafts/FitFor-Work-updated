@@ -44,7 +44,7 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Portal />} />
         <Route path="/enroll" element={<Enroll />} />
-        <Route path="/auth/:role/:hash/*" element={
+        <Route path="/auth/:role/:username/*" element={
       <RoleRouter />
 } />
 
