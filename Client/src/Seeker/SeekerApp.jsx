@@ -38,7 +38,7 @@ const SeekerApp = () => {
   }, [isLoggedIn, getAllCategories]);
 
   return (
-    <div>
+    <div> 
       <Navbar /> 
 
       <Routes>
@@ -50,13 +50,13 @@ const SeekerApp = () => {
         <Route path='help/chat' element={<ChatBox />} />
         <Route path='notification' element={<Notification />} />
         <Route path='settings' element={<Settings />} />
-        <Route path='apply' element={<Apply />} />
+        <Route path='apply' element={<Apply />} /> 
         <Route path='profile' element={<Profile />} />
         <Route path='profile/job/applied/:jobId' element={<SingleAppliedJob />} />
         <Route path='saved-jobs' element={<SavedJobs />} />
         <Route path='saved-jobs/detail/:jobId' element={<SingleJob />} />
         <Route path='profile/job/saved-jobs/:jobId' element={<SingleJob />} />
-        <Route path='enroll' element={<Enroll />} />
+        <Route path='enroll' element={<Enroll />} /> 
         <Route path='jobs' element={<Jobs />} />
         <Route path='jobs/custom/:param' element={<CustomJobs />} />
         <Route path='jobs/custom/:param/detail/:jobId' element={<SingleJob />} />

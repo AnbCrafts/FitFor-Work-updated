@@ -4,7 +4,6 @@ import {
     registerUser, 
     loginUser, 
     logoutUser,
-
     verifyEmail,
     forgotPassword,
     resetPassword,
@@ -19,12 +18,12 @@ import {
     changePassword,
     getUserSessions,
     getPublicProfile,
-    
 } from "../Controllers/User.Controllers.js";
 import { refreshAccessToken } from "../Controllers/RefreshToken.Controllers.js";
 import { verifyJWT } from "../Middlewares/VerifyJWT.Middleware.js";
 import { populateAdmin } from "../Middlewares/PopulateAdmin.Middleware.js";
 import { checkPermission } from "../Middlewares/CheckPermissions.Middleware.js";
+import { resolveIdentity } from "../Middlewares/ResolveIdentity.Middleware.js";
 
 const UserRouter = Router(); 
 
@@ -40,7 +39,8 @@ UserRouter.patch('/auth/reset-password', resetPassword);
 UserRouter.post('/auth/logout', verifyJWT, logoutUser);
 UserRouter.get('/auth/sessions', verifyJWT, getUserSessions);
 
-// --- 3. Profile Management (Self - Protected) ---
+// --- 3. Profile Management (Self - Implicit Identity) ---
+// No params needed here because verifyJWT provides req.user
 UserRouter.get('/me', verifyJWT, getMe);
 UserRouter.patch('/update-me', verifyJWT, upload.single('picture'), updateMe);
 UserRouter.patch('/change-password', verifyJWT, changePassword);
@@ -50,10 +50,12 @@ UserRouter.delete('/deactivate', verifyJWT, deactivateAccount);
 UserRouter.get('/profile/:username', getPublicProfile);
 
 // --- 5. Admin/Authority Level (Strictly Protected) ---
-// These require a logged-in user, an admin profile, and specific permissions
 UserRouter.get('/admin/all', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), getAllUsers);
 UserRouter.get('/admin/user/:userId', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), getUserById);
-UserRouter.get('/admin/seeker/:seekerId', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), getUserDataBySeekerId);
+
+// This route now uses resolveIdentity so Admin can search for "me" or a specific seekerId
+UserRouter.get('/admin/seeker/:id', verifyJWT, populateAdmin, checkPermission("USER_VIEW"), resolveIdentity, getUserDataBySeekerId);
+
 UserRouter.delete('/admin/remove/:userId', verifyJWT, populateAdmin, checkPermission("USER_DELETE"), removeUserById);
 UserRouter.patch('/admin/block/:userId', verifyJWT, populateAdmin, checkPermission("USER_BLOCK"), blockUserById);
 

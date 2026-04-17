@@ -135,12 +135,18 @@ const Enroll = () => {
 
   // Handle Dynamic Redirects after Login/Registration
   useEffect(() => {
-    if (isLoggedIn && user) {
-      const userRole = user.role?.toLowerCase();
-      const userName = user.username;
-      navigate(`/auth/${userRole}/${userName}`);
-    }
-  }, [isLoggedIn, user, navigate]);
+  // 1. Only proceed if we are logged in AND the user object is fully populated
+  if (isLoggedIn && user && user.role && user.username) {
+    
+    const userRole = user.role.toLowerCase();
+    const userName = user.username;
+
+    console.log("Navigating to:", `/auth/${userRole}/${userName}`);
+    
+    // 2. Use 'replace: true' to prevent the user from going back to the login page via the back button
+    navigate(`/auth/${userRole}/${userName}`, { replace: true }); 
+  }
+}, [isLoggedIn, user, navigate]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];

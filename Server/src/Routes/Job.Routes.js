@@ -10,14 +10,14 @@ import {
     getSavedJobBySeekerId, 
     removeJob, 
     saveJob,
-    // --- New Lifecycle & Management Controllers ---
     updateApplicationStatus,
     getApplicantsByJob,
     toggleJobStatus,
-    getSimilarJobs
+    getSimilarJobs,
+    getJobCategories
 } from "../Controllers/Job.Controllers.js";
 import { verifyJWT } from "../Middlewares/VerifyJWT.Middleware.js";
-  
+import { authorizeRoles } from "../Middlewares/RoleAuthorisation.Middleware.js";
 
 const JobRouter = Router(); 
 
@@ -27,22 +27,24 @@ JobRouter.get("/list/all/custom-query", getCustomizedJobs);
 JobRouter.get("/list/all/requirements", getAllRequirements);
 JobRouter.get("/list/all/:jobId", getJobById);
 JobRouter.get("/list/all/similar/:jobId", getSimilarJobs);
+JobRouter.get("/categories", getJobCategories);
 
 // --- 2. Job Creation & Authority Management (Auth Required) ---
-JobRouter.post("/create/new", verifyJWT, createJob);
-JobRouter.get("/list/all/authority/:AuthId", getAllJobsByAuthorityId);
-JobRouter.patch("/status/toggle/:jobId", verifyJWT, toggleJobStatus); // Close/Pause jobs
-JobRouter.delete("/list/all/:jobId/remove", verifyJWT, removeJob);
+// Identity pulled from req.user.authorityProfile
+JobRouter.post("/create/new", verifyJWT,authorizeRoles("Authority"), createJob);
+JobRouter.get("/my-listings", verifyJWT, getAllJobsByAuthorityId); // Replacement for authority/:AuthId
+JobRouter.patch("/status/toggle/:jobId", verifyJWT,authorizeRoles("Authority"), toggleJobStatus); 
+JobRouter.delete("/remove/:jobId", verifyJWT, removeJob);
 
 // --- 3. Seeker Interactions (Auth Required) ---
-// Note: verifyJWT ensures 'req.user' exists for dual-side notifications
-JobRouter.post("/apply/:jobId/:seekerId", verifyJWT, applyForJob); 
-JobRouter.put("/save/:jobId/:seekerId", verifyJWT, saveJob); 
-JobRouter.get("/applicant/:seekerId/saved-list/all", verifyJWT, getSavedJobBySeekerId);
+// Identity pulled from req.user.seekerProfile
+// You don't need resolveIdentity here because the controller pulls seekerId from req.user
+JobRouter.post("/apply/:jobId", verifyJWT, authorizeRoles("Seeker"), applyForJob); // Removed seekerId
+JobRouter.put("/save/:jobId", verifyJWT,authorizeRoles("Seeker"), saveJob);       // Removed seekerId
+JobRouter.get("/saved-list", verifyJWT, getSavedJobBySeekerId); // Removed seekerId
 
 // --- 4. Applicant Review (Employer Focused - Auth Required) ---
-// These power the "Persistent Cards" in the Employer's Review Queue
-JobRouter.get("/applicants/review/:jobId", verifyJWT, getApplicantsByJob); 
+JobRouter.get("/review/:jobId/applicants", verifyJWT, getApplicantsByJob); 
 JobRouter.patch("/applicant/decision/:applicantId", verifyJWT, updateApplicationStatus);
 
 export default JobRouter;

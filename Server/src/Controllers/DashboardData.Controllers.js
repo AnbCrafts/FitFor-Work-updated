@@ -3,22 +3,26 @@ import Job from "../Models/Job.Models.js";
 
 const getSuggestedJobsForSeeker = async (req, res) => {
   try {
+    // resolveIdentity middleware has already verified this is a valid ObjectId
     const { seekerId } = req.params;
 
-    if (!seekerId) {
-      return res.status(400).json({ success: false, message: "Seeker ID is required." });
-    }
+    // 1. Fetch Seeker Profile
+    const seeker = await Seeker.findById(seekerId)
+      .select("skills preferredLocation preferredJobType experience desiredPost appliedFor")
+      .lean();
 
-    // 1. Fetch Seeker and their "Exclusion List" (Already Applied)
-    const seeker = await Seeker.findById(seekerId).select("skills preferredLocation preferredJobType experience desiredPost appliedFor");
     if (!seeker) {
-      return res.status(404).json({ success: false, message: "Seeker not found." });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Professional profile not found." 
+      });
     }
 
-    // 2. Build the Recommendation Query
+    // 2. Build Smart Recommendation Query
+    // We look for Active jobs, excluding those the user already applied to
     const query = {
-      status: "Active", // Matches your 'toggleJobStatus' naming
-      _id: { $nin: seeker.appliedFor || [] }, // Don't show jobs already applied to
+      status: "Active",
+      _id: { $nin: seeker.appliedFor || [] },
       $or: [
         { location: { $regex: seeker.preferredLocation || "", $options: "i" } },
         { jobType: seeker.preferredJobType },
@@ -27,23 +31,28 @@ const getSuggestedJobsForSeeker = async (req, res) => {
       ]
     };
 
-    // 3. Fetch with Authority Branding for UI Cards
+    // 3. Fetch with Population
+    // populate('postedBy') connects to the Authority model for branding
     const suggestedJobs = await Job.find(query)
       .select("title jobRole location jobType salaryRange companyLogo companyId createdAt")
-      .populate("postedBy", "companyName companyLogo industry") // Critical for the UI Card
-      .limit(20)
+      .populate("companyId", "companyName picture industry") // Ensure this matches your field name in Job model
+      .limit(15)
       .sort({ createdAt: -1 })
       .lean();
 
+    // 4. Response
     return res.status(200).json({
       success: true,
       totalMatches: suggestedJobs.length,
-      suggestedJobs, // Now contains everything needed for a rich UI card
+      suggestedJobs, 
     });
 
   } catch (error) {
     console.error("Error in getSuggestedJobsForSeeker:", error.message);
-    return res.status(500).json({ success: false, message: "Internal server error." });
+    return res.status(500).json({ 
+        success: false, 
+        message: "Failed to fetch job suggestions." 
+    });
   }
 };
 

@@ -22,7 +22,7 @@ const NavPagesDropdown = () => {
 
   /* Base path */
   useEffect(() => {
-    if (role && hash) setNavPath(`/auth/${role}/${hash}`);
+    if (role && hash) setNavPath(`auth/${role}/${hash}`);
   }, [role, hash]);
 
   /* Detect active page */

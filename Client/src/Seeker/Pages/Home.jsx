@@ -74,11 +74,14 @@ const Home = () => {
         }
       >
         <option value="" className="text-gray-500">Select {label}</option>
-        {list?.map((item, index) => (
-          <option key={index} value={item} className="text-gray-900">
-            {item}
-          </option>
-        ))}
+        {/* FIXED: Added filter to remove null/objects and prevent React Child Error */}
+        {list && list
+          .filter(item => item !== null && typeof item !== 'object') 
+          .map((item, index) => (
+            <option key={index} value={item} className="text-gray-900">
+              {item}
+            </option>
+          ))}
       </select>
     </div>
   );
@@ -153,7 +156,10 @@ const Home = () => {
               Explore <span className="text-purple-600">Categories</span>
             </h2>
             <div className="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {requirements?.category?.slice(0, 10).map((cat, idx) => {
+              {/* FIXED: Added optional chaining and icon safety check */}
+              {requirements?.category && requirements.category
+                .filter(cat => cat !== null)
+                .slice(0, 10).map((cat, idx) => {
                 const Icon = categoryIcons[idx % categoryIcons.length];
                 return (
                   <Link
@@ -161,7 +167,7 @@ const Home = () => {
                     to={`jobs/custom/category=${cat}`}
                     className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 hover:shadow-lg hover:border-purple-300 transition flex flex-col items-center text-center"
                   >
-                    <Icon size={34} className="text-purple-600 mb-3" />
+                    {Icon && <Icon size={34} className="text-purple-600 mb-3" />}
                     <p className="font-semibold text-gray-800">{cat}</p>
                   </Link>
                 );
@@ -178,6 +184,7 @@ const Home = () => {
               onSubmit={submitHandler}
               className="bg-white rounded-2xl shadow-xl border border-gray-200 p-10 space-y-7 max-w-3xl mx-auto"
             >
+              {/* FIXED: Passing requirements with optional chaining to prevent undefined crashes */}
               <SuggestionSelect label="Role" name="roles" list={requirements?.roles} />
               <SuggestionSelect label="Category" name="category" list={requirements?.category} />
               <SuggestionSelect label="Location" name="location" list={requirements?.location} />

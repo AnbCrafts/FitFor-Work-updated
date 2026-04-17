@@ -1,19 +1,41 @@
 import { Router } from "express";
-import { acceptApplicant, getAllApplicant, getApplicantById, getApplicantDATAFromCompanyId, getApplicantFromCompanyId, getApplicantFromCompanyIdAndJobId, getApplicantFromJobId, getApplicantFromSeekerId, rejectApplicant } from "../Controllers/Applicant.Controllers.js";
+import { 
+  getAllCompanies, 
+  getCompaniesById, 
+  getCompanyByOwner, 
+  registerCompany, 
+  removeCompany,
+  getMatchingSeekers, 
+  editProfile, 
+  updateAuthoritiesPreferredSkills, 
+  getAllCompanyNames 
+} from "../Controllers/Authority.Controllers.js";
+import upload from "../Middlewares/Multer.Middleware.js";
+import { verifyJWT } from "../Middlewares/VerifyJWT.Middleware.js";
+import { resolveIdentity } from "../Middlewares/ResolveIdentity.Middleware.js";
 
+const AuthorityRouter = Router();
 
+// --- 1. Registration (Authenticated) ---
+AuthorityRouter.post('/register/new', verifyJWT, upload.single('companyLogo'), registerCompany);
 
-const ApplicantRouter =  Router();  
- 
-ApplicantRouter.post("/list/all/applicant/:applicantId/job/:jobId/accept",acceptApplicant)
-ApplicantRouter.post("/list/all/applicant/:applicantId/job/:jobId/reject",rejectApplicant)
-ApplicantRouter.get("/list/all",getAllApplicant) 
-ApplicantRouter.get("/list/all/:applicantId",getApplicantById)
-ApplicantRouter.get("/list/all/job/:jobId",getApplicantFromJobId)
-ApplicantRouter.get("/list/all/seeker/:seekerId",getApplicantFromSeekerId)
-ApplicantRouter.get("/list/all/company/:companyId",getApplicantFromCompanyId)
-ApplicantRouter.get("/list/all/company/:companyId/data",getApplicantDATAFromCompanyId)
-ApplicantRouter.get("/list/all/company/:companyId/job/:jobId",getApplicantFromCompanyIdAndJobId)
+// --- 2. Public / General Lists ---
+AuthorityRouter.get('/list/all', getAllCompanies);
+AuthorityRouter.get('/all/names', getAllCompanyNames);
 
- 
-export default ApplicantRouter;
+// --- 3. Self-Service Routes (The "Me" Pattern) ---
+// Frontend calls: /authority/profile/me/edit
+AuthorityRouter.put('/profile/edit/:id', verifyJWT, resolveIdentity, editProfile); 
+
+// Frontend calls: /authority/list/all/seekers/matching-skills/me
+AuthorityRouter.get('/list/all/seekers/matching-skills/:id', verifyJWT, resolveIdentity, getMatchingSeekers);
+
+// Frontend calls: /authority/list/all/me/remove
+AuthorityRouter.delete('/list/all/:id/remove', verifyJWT, resolveIdentity, removeCompany);
+
+// --- 4. Admin or Specific Lookups ---
+AuthorityRouter.get('/list/all/:authorityId', verifyJWT, getCompaniesById);
+AuthorityRouter.get('/list/all/owner/:ownerId', verifyJWT, getCompanyByOwner);
+AuthorityRouter.put('/list/all/update-skills', verifyJWT, updateAuthoritiesPreferredSkills); 
+
+export default AuthorityRouter;

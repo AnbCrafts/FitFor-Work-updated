@@ -1,26 +1,42 @@
 import { Router } from "express";
-import { getAllApplicantStatus, getApplicationCountPerJob, getApplicationsByJobCategory, getApplicationsByJobRole, getApplicationsByJobType, getApplicationsByLocations, getApplicationStatus, getApplicationStatusByDate, getApplicationStatusByJobCategory, getApplicationStatusByJobLocation, getProfileGrade, getWeeklyApplicationStats } from "../Controllers/Graph.Controllers.js";
- 
+import { 
+  getAllApplicantStatus, 
+  getApplicationCountPerJob, 
+  getApplicationsByJobCategory, 
+  getApplicationsByJobRole, 
+  getApplicationsByJobType, 
+  getApplicationsByLocations, 
+  getApplicationStatus, 
+  getApplicationStatusByDate, 
+  getApplicationStatusByJobCategory, 
+  getApplicationStatusByJobLocation, 
+  getProfileGrade, 
+  getWeeklyApplicationStats 
+} from "../Controllers/Graph.Controllers.js";
+import { verifyJWT } from "../Middlewares/VerifyJWT.Middleware.js";
 
 const GraphRouter = Router(); 
 
-GraphRouter.get('/application/status/:seekerId',getApplicationStatus)
-GraphRouter.get('/application/status/:seekerId/date',getApplicationStatusByDate)
-GraphRouter.get('/application/status/:seekerId/category',getApplicationStatusByJobCategory)
-GraphRouter.get('/application/status/:seekerId/location',getApplicationStatusByJobLocation)
-GraphRouter.get('/applicant-profile/:seekerId/grade',getProfileGrade)
+/** * --- SEEKER ANALYTICS --- 
+ * No params needed. Identity is pulled from req.user (via Cookie)
+ */
+GraphRouter.get('/seeker/status', verifyJWT, getApplicationStatus);
+GraphRouter.get('/seeker/status/date', verifyJWT, getApplicationStatusByDate);
+GraphRouter.get('/seeker/status/category', verifyJWT, getApplicationStatusByJobCategory);
+GraphRouter.get('/seeker/status/location', verifyJWT, getApplicationStatusByJobLocation);
+GraphRouter.get('/seeker/profile-grade', verifyJWT, getProfileGrade);
 
 
-// Authority Graph Routes
- 
+/** * --- AUTHORITY ANALYTICS --- 
+ * No params needed. Identity is pulled from req.user (via Cookie)
+ */
+GraphRouter.get('/authority/count', verifyJWT, getApplicationCountPerJob);
+GraphRouter.get('/authority/count/weekly', verifyJWT, getWeeklyApplicationStats);
+GraphRouter.get('/authority/count/status', verifyJWT, getAllApplicantStatus);
+GraphRouter.get('/authority/count/location', verifyJWT, getApplicationsByLocations);
+GraphRouter.get('/authority/count/role', verifyJWT, getApplicationsByJobRole);
+GraphRouter.get('/authority/count/type', verifyJWT, getApplicationsByJobType);
+GraphRouter.get('/authority/count/category', verifyJWT, getApplicationsByJobCategory);
 
-GraphRouter.get('/job-applications/:authId/count',getApplicationCountPerJob)
-GraphRouter.get('/job-applications/:authId/count/weekly',getWeeklyApplicationStats)
-GraphRouter.get('/job-applications/:authId/count/status',getAllApplicantStatus)
-GraphRouter.get('/job-applications/:authId/count/location',getApplicationsByLocations)
-GraphRouter.get('/job-applications/:authId/count/role',getApplicationsByJobRole)
-GraphRouter.get('/job-applications/:authId/count/type',getApplicationsByJobType)
-GraphRouter.get('/job-applications/:authId/count/category',getApplicationsByJobCategory)
 
-
-export default GraphRouter; 
+export default GraphRouter;

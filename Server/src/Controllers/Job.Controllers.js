@@ -6,21 +6,16 @@ import Seeker from '../Models/Seeker.Models.js';
 import Applicant from '../Models/Applicant.Models.js';
 import { sendNotification } from './Notification.Controllers.js';
 
-
+// 1. Create Job (Implicit Authority Identity)
 const createJob = async (req, res) => {
-    // 1. Start Transaction
     const session = await mongoose.startSession();
     session.startTransaction();
-
     try {
-        const {
-            category, title, jobRole, description,
-            skillsRequired, experienceRequired, jobType,
-            salaryRange, location, postedBy, totalSeats,
-            deadline, status = "Active"
-        } = req.body;
+        const { category, title, jobRole, description, skillsRequired, experienceRequired, jobType, salaryRange, location, totalSeats, deadline, status = "Active" } = req.body;
 
-        // 2. Validation
+        // Identification: Get Authority Profile from verified cookie session
+        const postedBy = req.user.authorityProfile; 
+
         if (!title || !description || !skillsRequired || !postedBy || !deadline || !totalSeats || !jobRole) {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: "Missing required fields" });
@@ -29,34 +24,21 @@ const createJob = async (req, res) => {
         const authority = await Authority.findById(postedBy).session(session);
         if (!authority) {
             await session.abortTransaction();
-            return res.status(404).json({ success: false, message: "Authority (Employer) not found" });
+            return res.status(404).json({ success: false, message: "Employer profile not found" });
         }
 
-        // 3. Duplicate Check
-        const existingJob = await Job.findOne({
-            title: title.trim(),
-            location: location.trim(),
-            postedBy,
-            jobRole
-        }).session(session);
-
+        // Duplicate Check
+        const existingJob = await Job.findOne({ title: title.trim(), location: location.trim(), postedBy, jobRole }).session(session);
         if (existingJob) {
             await session.abortTransaction();
             return res.status(409).json({ success: false, message: "This job has already been posted" });
         }
 
-        // 4. Create Job Record
         const newJob = await Job.create([{
-            title, totalSeats, description, skillsRequired,
-            experienceRequired, jobType, salaryRange,
-            location, postedBy, deadline, status,
-            jobRole, category
+            title, totalSeats, description, skillsRequired, experienceRequired, jobType, salaryRange, location, postedBy, deadline, status, jobRole, category
         }], { session });
 
         const jobId = newJob[0]._id;
-
-        // 5. Update Authority (Job List & Preferred Skills)
-        // We use $addToSet for skills to let MongoDB handle the unique check efficiently
         const normalizedSkills = skillsRequired.map(s => s.trim());
         
         await Authority.findByIdAndUpdate(postedBy, {
@@ -64,600 +46,355 @@ const createJob = async (req, res) => {
             $addToSet: { preferredSkills: { $each: normalizedSkills } }
         }, { session });
 
-        // 6. Commit all DB changes
         await session.commitTransaction();
         session.endSession();
 
-        // 7. BROADCAST NOTIFICATION (The "Dual-Side" UI enhancement)
-        // We trigger this after commit. For production, you might filter 
-        // seekers who have matching skills to avoid spamming everyone.
-        
-        const broadcastSub = `New Opportunity: ${jobRole} position open at ${location}.`;
-        
-        // This is sent to a 'Topic' or handled as a broadcast type in your utility
+        // Broadcast Notification
         sendNotification({
-            recipientId: "ALL_RELEVANT_SEEKERS", // Handled by your logic in the utility
+            recipientId: "ALL_RELEVANT_SEEKERS",
             title: "New Job Alert! 📢",
-            subject: broadcastSub,
+            subject: `New Opportunity: ${jobRole} position open at ${location}.`,
             type: "job_alert",
-            metaData: {
-                jobId: jobId,
-                title: title,
-                companyName: authority.companyName,
-                companyLogo: authority.companyLogo, // Persistent UI Card data
-                skills: skillsRequired.slice(0, 3),
-                salary: salaryRange
-            }
-        }).catch(err => console.error("Broadcast Notification failed:", err));
+            metaData: { jobId, title, companyName: authority.companyName }
+        }).catch(err => console.error("Broadcast failed:", err));
 
-        return res.status(201).json({
-            success: true,
-            message: "Job posted and matching seekers notified",
-            job: newJob[0],
-        });
-
+        return res.status(201).json({ success: true, job: newJob[0] });
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-        console.error("Error in createJob:", error);
-        return res.status(500).json({ success: false, message: "Server error during job creation" });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
-const getAllJobs = async(req,res)=>{
+
+// 2. Get All Jobs (Public)
+const getAllJobs = async (req, res) => {
     try {
-        const jobs = await Job.find({});
-        if(!jobs || !jobs.length>0){
-            return res.json({ success: false, message: "No Jobs found" })
-        }
-        return res.json({ success: true, message: "got all jobs" ,jobs})
+        // 1. EXTRACT QUERY PARAMS
+        // Defaults: Page 1, Limit 10, Sort by newest
+        const { 
+            page = 1, 
+            limit = 10, 
+            category, 
+            location, 
+            jobType, 
+            search, 
+            sort = "-createdAt" 
+        } = req.query;
 
+        // 2. BUILD DYNAMIC FILTER OBJECT
+        const queryObj = { status: "Open" };
+
+        if (category) queryObj.category = category;
+        if (location) queryObj.location = { $regex: location, $options: "i" }; // Case-insensitive
+        if (jobType) queryObj.jobType = jobType;
         
+        // Advanced Search (Search in Title or Description)
+        if (search) {
+            queryObj.$or = [
+                { title: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        // 3. EXECUTE QUERY WITH PAGINATION
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const jobs = await Job.find(queryObj)
+            .populate("postedBy", "companyName companyLogo")
+            .sort(sort)
+            .skip(skip)
+            .limit(Number(limit));
+
+        // 4. GET TOTAL COUNT FOR FRONTEND PAGINATION
+        const totalJobs = await Job.countDocuments(queryObj);
+
+        return res.status(200).json({
+            success: true,
+            count: jobs.length,
+            totalJobs,
+            totalPages: Math.ceil(totalJobs / limit),
+            currentPage: Number(page),
+            jobs
+        });
+
     } catch (error) {
-        console.log(error)
-            return res.json({ success: false, message: "Something error occurred" })
-
+        console.error("GET_ALL_JOBS_ERROR:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Failed to fetch jobs", 
+            error: error.message 
+        });
     }
-}
-const getJobById = async(req,res)=>{
-    try {
-        const {jobId} = req.params;
-        if(!jobId){
-            return res.json({ success: false, message: "Cannot get Job Id" }) 
-        }
-
-        const job = await Job.findById(jobId);
-        if(!job){
-            return res.json({ success: false, message: "No Job found for this id" })
-        }
-        return res.json({ success: true, message: "got the job for this id" ,job})
-
-        
-    } catch (error) {
-        console.log(error)
-            return res.json({ success: false, message: "Something error occurred" })
-
-    }
-}
-const removeJob = async(req,res)=>{
-    try {
-        const {jobId} = req.params;
-        if(!jobId){
-            return res.json({ success: false, message: "Cannot get Job Id" }) 
-        }
-        const job = await Job.findByIdAndDelete(jobId);
-        if(!job){
-            return res.json({ success: false, message: "No Job found for this id to delete" })
-        }
-        return res.json({ success: true, message: "deleted the job for this id" })
-
-        
-    } catch (error) {
-        console.log(error)
-            return res.json({ success: false, message: "Something error occurred" })
-
-    }
-}
-const getAllJobsByAuthorityId = async (req, res) => {
-  try {
-    const { AuthId } = req.params;
-
-    if (!AuthId) {
-      return res.status(400).json({ success: false, message: "Authority Id is required" });
-    }
-
-    const jobs = await Job.find({ postedBy: AuthId });
-
-    if (!jobs || jobs.length === 0) {
-      return res.status(404).json({ success: false, message: "No Jobs found for this ID" });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Fetched all jobs for this authority",
-      jobs
-    });
-
-  } catch (error) {
-    console.error("Error fetching jobs by authority ID:", error);
-    return res.status(500).json({ success: false, message: "Server error occurred" });
-  }
 };
-const applyForJob = async (req, res) => {
+
+// 3. Apply For Job (Implicit Seeker Identity)
+
+ const applyForJob = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
-
     try {
-        const { jobId, seekerId } = req.params;
+        const { jobId } = req.params;
+        const userId = req.user._id;
 
-        // 1. Initial Validations
+        // 1. MANUALLY FIND SEEKER (The Bulletproof Way)
+        // This avoids issues with what is or isn't in the JWT/req.user
+        const seeker = await Seeker.findOne({ userId }).session(session);
+
+        if (!seeker || req.user.role !== 'Seeker') {
+            await session.abortTransaction();
+            return res.status(403).json({ 
+                success: false, 
+                message: "Forbidden: Only Seeker profiles can apply for jobs." 
+            });
+        }
+
+        const seekerId = seeker._id;
+
+        // 2. VALIDATE JOB
         const job = await Job.findById(jobId).session(session);
         if (!job) {
             await session.abortTransaction();
-            return res.status(404).json({ success: false, message: "Job not found" });
+            return res.status(404).json({ success: false, message: "Job listing not found." });
         }
 
-        // Fetch seeker to get data for the Employer's Snapshot Card
-        const seeker = await Seeker.findById(seekerId).populate("userId").session(session);
-        if (!seeker) {
+        if (job.status !== "Open" || new Date(job.deadline) < new Date()) {
             await session.abortTransaction();
-            return res.status(404).json({ success: false, message: "Seeker not found" });
+            return res.status(400).json({ success: false, message: "Application period has ended." });
         }
 
-        if (job.totalSeats <= 0) {
-            await session.abortTransaction();
-            return res.status(400).json({ success: false, message: "No seats available" });
-        }
-
-        if (new Date(job.deadline) < new Date()) {
-            await session.abortTransaction();
-            return res.status(400).json({ success: false, message: "Deadline passed" });
-        }
-
+        // 3. DUPLICATE CHECK
         const alreadyApplied = await Applicant.findOne({ jobId, seekerId }).session(session);
         if (alreadyApplied) {
             await session.abortTransaction();
-            return res.status(400).json({ success: false, message: "Already applied" });
+            return res.status(400).json({ success: false, message: "You have already applied." });
         }
 
-        // 2. Create Applicant Record (The Source of Truth)
+        // 4. CREATE APPLICATION
         const newApplicant = await Applicant.create([{
-            jobId,
-            seekerId,
-            companyId: job.postedBy,
+            jobId, 
+            seekerId, 
+            companyId: job.postedBy, 
             status: 'Under Review'
         }], { session });
 
         const applicantId = newApplicant[0]._id;
 
-        // 3. Atomic Updates
+        // 5. ATOMIC UPDATES
         await Authority.findByIdAndUpdate(job.postedBy, { $push: { SeekersToReview: applicantId } }, { session });
         await Seeker.findByIdAndUpdate(seekerId, { $addToSet: { appliedFor: jobId } }, { session });
-        await Job.findByIdAndUpdate(jobId, { $push: { applicants: applicantId }, $inc: { applicantCount: 1 } }, { session });
+        await Job.findByIdAndUpdate(jobId, { 
+            $push: { applicants: seekerId }, 
+            $inc: { applicantCount: 1 } 
+        }, { session });
 
         await session.commitTransaction();
         session.endSession();
 
-        // 4. DUAL-SIDE NOTIFICATIONS (The UI Enhancement Layer)
-        
-        // A. SEEKER NOTIFICATION (The "Tracking Card" Data)
-        sendNotification({
-            recipientId: seeker.userId._id,
-            title: "Application Sent! 🚀",
-            subject: `Successfully applied to ${job.jobRole} at ${job.companyName || 'the company'}.`,
-            type: "application_seeker",
-            metaData: {
-                applicationId: applicantId,
-                jobTitle: job.jobRole,
-                companyLogo: job.companyLogo || "", // Persistent Snapshot
-                status: "Under Review",
-                appliedAt: new Date()
-            }
-        }).catch(err => console.error("Seeker Notification failed:", err));
-
-        // B. EMPLOYER NOTIFICATION (The "Candidate Snapshot" Card)
-        sendNotification({
-            recipientId: job.postedBy, 
-            title: "New Candidate Alert! 👤",
-            subject: `${seeker.userId.firstName} ${seeker.userId.lastName} applied for ${job.jobRole}.`,
-            type: "application_employer",
-            metaData: {
-                applicantId: applicantId,
-                seekerName: `${seeker.userId.firstName} ${seeker.userId.lastName}`,
-                seekerPicture: seeker.userId.picture,
-                topSkills: seeker.skills.slice(0, 3), // Denormalized for the card
-                experience: seeker.experience,
-                matchScore: calculateMatchScore(seeker.skills, job.skillsRequired) // Your custom logic
-            }
-        }).catch(err => console.error("Employer Notification failed:", err));
-
-        return res.status(200).json({ 
-            success: true, 
-            message: "Applied successfully. Notifications dispatched.", 
-            applicantId 
-        });
-
+        return res.status(200).json({ success: true, message: "Applied successfully!" });
     } catch (error) {
-        await session.abortTransaction();
+        if (session.inTransaction()) await session.abortTransaction();
         session.endSession();
-        console.error("ApplyForJob Error:", error);
-        return res.status(500).json({ success: false, message: "Internal Server Error" });
+        console.error("APPLY_ERROR:", error);
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
-const saveJob = async (req, res) => {
+
+// 4. Save Job (Implicit Seeker Identity)
+ const saveJob = async (req, res) => {
   try {
-    const { jobId, seekerId } = req.params;
-
-    if (!seekerId || !jobId) {
-      return res.status(400).json({ success: false, message: "Seeker ID and Job ID are required." });
-    }
-
-    const seeker = await Seeker.findById(seekerId);
-    const job = await Job.findById(jobId);
-
-    if (!seeker) {
-      return res.status(404).json({ success: false, message: "Seeker not found." });
-    }
-
-    if (!job) {
-      return res.status(404).json({ success: false, message: "Job not found." });
-    }
-
-    // Check if already saved
-    const alreadySaved = seeker.savedJobs.includes(jobId);
-
-    if (alreadySaved) {
-      return res.status(400).json({ success: false, message: "Job already saved." });
-    }
-
-    // Save the job
-    seeker.savedJobs.push(jobId);
-    await seeker.save();
-
-    return res.status(200).json({ success: true, message: "Job saved successfully." });
-
-  } catch (error) {
-    console.error("Error in saveJob:", error);
-    return res.status(500).json({ success: false, message: "Internal server error." });
-  }
-};
-const getSavedJobBySeekerId = async (req, res) => {
-  try {
-    const { seekerId } = req.params;
+    const { jobId } = req.params;
+    
+    // 1. Extract Seeker ID safely from the user session
+    // Handles both populated object or raw ID string
+    const seekerId = req.user?.seekerProfile?._id || req.user?.seekerProfile;
 
     if (!seekerId) {
-      return res.status(400).json({
-        success: false,
-        message: "Seeker ID is required."
+      return res.status(403).json({ 
+        success: false, 
+        message: "Only Seeker profiles can save jobs." 
       });
     }
 
+    // 2. Find the Seeker document
     const seeker = await Seeker.findById(seekerId);
-
     if (!seeker) {
-      return res.status(404).json({
-        success: false,
-        message: "Seeker not found."
+      return res.status(404).json({ 
+        success: false, 
+        message: "Seeker profile not found in database." 
       });
     }
 
-    const savedJobs = seeker.savedJobs;
-
-    if (!savedJobs || savedJobs.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No saved jobs found."
-      });
+    // 3. Toggle Save Logic (Prevent duplicates)
+    const isAlreadySaved = seeker.savedJobs.includes(jobId);
+    
+    if (isAlreadySaved) {
+      // If already saved, remove it (Toggle behavior)
+      seeker.savedJobs = seeker.savedJobs.filter(id => id.toString() !== jobId);
+      await seeker.save();
+      return res.status(200).json({ success: true, message: "Job removed from shortlist" });
+    } else {
+      // If not saved, add it
+      seeker.savedJobs.push(jobId);
+      await seeker.save();
+      return res.status(200).json({ success: true, message: "Job saved successfully!" });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Jobs found.",
-      savedJobs
-    });
 
   } catch (error) {
-    console.error("Error in getSavedJobBySeekerId:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error."
-    });
+    console.error("SAVE_JOB_ERROR:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
-const getCustomizedJobs = async (req, res) => {
+
+// 5. Get Saved Jobs (Implicit Seeker Identity)
+const getSavedJobBySeekerId = async (req, res) => {
   try {
-    const {
-      skills,
-      location,
-      jobType,
-      jobRole,
-      minExperience,
-      authorityId,
-      category,
-      sortBy,
-      status,
-    } = req.query;
+    const seekerId = req.user.seekerProfile;
+    const seeker = await Seeker.findById(seekerId).populate({
+        path: "savedJobs",
+        populate: { path: "postedBy", select: "companyName companyLogo" }
+    });
 
-    let filter = {};
+    if (!seeker) return res.status(404).json({ success: false, message: "Seeker not found" });
+    return res.status(200).json({ success: true, savedJobs: seeker.savedJobs });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    if (skills) {
-      const skillsArray = skills.split(',').map(s => s.trim());
-      filter.skillsRequired = { $in: skillsArray };
+// 6. Get Jobs by Authority (Implicit Authority Identity)
+const getAllJobsByAuthorityId = async (req, res) => {
+  try {
+    const AuthId = req.user.authorityProfile; // Pulled from cookie
+    const jobs = await Job.find({ postedBy: AuthId }).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, jobs });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// 7. Get Job By ID (Public)
+const getJobById = async(req,res)=>{
+    try {
+        const {jobId} = req.params;
+        const job = await Job.findById(jobId).populate("postedBy", "companyName companyLogo about industry");
+        if(!job) return res.status(404).json({ success: false, message: "Job not found" });
+        return res.json({ success: true, job });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Internal Error" });
     }
-
-    if (location) {
-      filter.location = location;
-    }
-
-    if (jobType) {
-      filter.jobType = jobType;
-    }
-
-    if (jobRole) {
-      filter.jobRole = jobRole;
-    }
-
-    if (minExperience) {
-      // Assuming experience is stored as a number-like string e.g. "2", "3"
-      filter.experienceRequired = { $gte: minExperience };
-    }
-
-    if (authorityId) {
-      filter.postedBy = authorityId;
-    }
-
-    if (category) {
-      filter.category = category;
-    }
-
-    if (status) {
-      filter.status = status;
-    }
-
-    let sort = {};
-    if (sortBy === "applicants") sort = { applicants: -1 };
-    else if (sortBy === "deadline") sort = { deadline: 1 };
-    else if (sortBy === "vacancies") sort = { totalSeats: -1 };
-    else if (sortBy === "createdAt") sort = { createdAt: -1 };
-
-    let jobs = await Job.find(filter)
-      .populate("postedBy", "companyName industry") 
-      .populate("applicants") 
-      .sort(sort);
-
-      if (minExperience) {
-  const minExp = parseInt(minExperience);
-  jobs = jobs.filter(job => {
-    const match = job.experienceRequired.match(/\d+/);
-    if (!match) return false;
-    const jobExp = parseInt(match[0]);
-    return jobExp >= minExp;
-  });
 }
 
-    return res.status(200).json({
-      success: true,
-      message: "Filtered job list fetched successfully",
-      jobs,
-    });
+// 8. Remove Job
+const removeJob = async(req,res)=>{
+    try {
+        const {jobId} = req.params;
+        const authId = req.user.authorityProfile;
+
+        const job = await Job.findOneAndDelete({ _id: jobId, postedBy: authId });
+        if(!job) return res.status(404).json({ success: false, message: "Job not found or unauthorized" });
+        
+        return res.json({ success: true, message: "Job removed" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Error" });
+    }
+}
+
+// 9. Get Customized Jobs
+const getCustomizedJobs = async (req, res) => {
+  try {
+    const { skills, location, jobType, jobRole, minExperience, category, status } = req.query;
+    let filter = { status: status || "Active" };
+
+    if (skills) filter.skillsRequired = { $in: skills.split(',').map(s => s.trim()) };
+    if (location) filter.location = { $regex: location, $options: 'i' };
+    if (jobType) filter.jobType = jobType;
+    if (jobRole) filter.jobRole = { $regex: jobRole, $options: 'i' };
+    if (category) filter.category = category;
+
+    let jobs = await Job.find(filter).populate("postedBy", "companyName companyLogo industry").sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, jobs });
   } catch (error) {
-    console.error("Error in getCustomizedJobs:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    return res.status(500).json({ success: false, message: "Internal Error" });
   }
 };
+
+// 10. Get All Requirements (For Filters)
 const getAllRequirements = async (req, res) => {
   try {
-    // 1. Use Aggregation to get unique values directly from MongoDB
     const requirements = await Job.aggregate([
-      {
-        $facet: {
+      { $facet: {
           "skills": [ { $unwind: "$skillsRequired" }, { $group: { _id: "$skillsRequired" } } ],
-          "experience": [ { $group: { _id: "$experienceRequired" } } ],
           "jobTypes": [ { $group: { _id: "$jobType" } } ],
-          "roles": [ { $group: { _id: "$jobRole" } } ],
-          "salaries": [ { $group: { _id: "$salaryRange" } } ],
           "locations": [ { $group: { _id: "$location" } } ],
-          "categories": [ { $group: { _id: "$category" } } ],
-          "ownerIds": [ { $group: { _id: "$postedBy" } } ]
-        }
-      },
-      {
-        $project: {
-          skills: { $map: { input: "$skills", as: "s", in: "$$s._id" } },
-          experience: { $map: { input: "$experience", as: "e", in: "$$e._id" } },
-          jobType: { $map: { input: "$jobTypes", as: "j", in: "$$j._id" } },
-          roles: { $map: { input: "$roles", as: "r", in: "$$r._id" } },
-          salary: { $map: { input: "$salaries", as: "sal", in: "$$sal._id" } },
-          location: { $map: { input: "$locations", as: "l", in: "$$l._id" } },
-          category: { $map: { input: "$categories", as: "c", in: "$$c._id" } },
-          ownerIds: { $map: { input: "$ownerIds", as: "o", in: "$$o._id" } }
-        }
-      }
+          "categories": [ { $group: { _id: "$category" } } ]
+      }}
     ]);
-
-    const result = requirements[0];
-
-    // 2. Fetch Authority details (Optimized: only if ownerIds exist)
-    let uniqueOwners = [];
-    if (result.ownerIds?.length > 0) {
-      uniqueOwners = await Authority.find({
-        _id: { $in: result.ownerIds }
-      }).select("companyName industry _id companyLogo").lean();
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Filter requirements fetched successfully",
-      categories: {
-        ...result,
-        owners: uniqueOwners
-      }
-    });
-
+    return res.status(200).json({ success: true, categories: requirements[0] });
   } catch (error) {
-    console.error("❌ Aggregation Error in getAllRequirements:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Internal Server Error" 
-    });
+    return res.status(500).json({ success: false, message: "Internal Error" });
   }
 };
 
- const updateApplicationStatus = async (req, res) => {
+// 11. Update Application Status
+const updateApplicationStatus = async (req, res) => {
     try {
         const { applicantId } = req.params;
-        const { status, feedback } = req.body; // e.g., 'Shortlisted', 'Rejected', 'Interview'
-
-        const validStatuses = ['Under Review', 'Shortlisted', 'Interview', 'Rejected', 'Offered'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ success: false, message: "Invalid status update" });
-        }
-
-        // 1. Update the Applicant record
-        const applicant = await Applicant.findByIdAndUpdate(
-            applicantId,
-            { $set: { status, feedback } },
-            { new: true }
-        ).populate("jobId seekerId");
-
-        if (!applicant) {
-            return res.status(404).json({ success: false, message: "Application record not found" });
-        }
-
-        // 2. DUAL-SIDE NOTIFICATION: Notify the Seeker of the result
-        const seekerUserId = applicant.seekerId.userId; 
-        
-        sendNotification({
-            recipientId: seekerUserId,
-            title: `Application Update: ${status} 📢`,
-            subject: `Your application for ${applicant.jobId.jobRole} has been marked as ${status}.`,
-            type: "status_change",
-            metaData: {
-                applicationId: applicantId,
-                status: status,
-                jobTitle: applicant.jobId.jobRole,
-                feedback: feedback || ""
-            }
-        }).catch(err => console.error("Seeker status notification failed", err));
-
-        return res.status(200).json({
-            success: true,
-            message: `Applicant status updated to ${status}`,
-            applicant
-        });
-
+        const { status, feedback } = req.body;
+        const applicant = await Applicant.findByIdAndUpdate(applicantId, { $set: { status, feedback } }, { new: true }).populate("jobId");
+        return res.status(200).json({ success: true, applicant });
     } catch (error) {
-        console.error("Update Status Error:", error);
-        return res.status(500).json({ success: false, message: "Internal Server Error" });
+        return res.status(500).json({ success: false });
     }
 };
 
+// 12. Get Applicants for Job
 const getApplicantsByJob = async (req, res) => {
     try {
         const { jobId } = req.params;
-
-        const applicants = await Applicant.find({ jobId })
-            .populate({
-                path: "seekerId",
-                select: "skills experience resume",
-                populate: { path: "userId", select: "firstName lastName picture email" }
-            })
-            .sort({ createdAt: -1 })
-            .lean();
-
-        if (!applicants || applicants.length === 0) {
-            return res.status(200).json({ success: true, message: "No applicants yet", applicants: [] });
-        }
-
-        // Optional: Add a "Match Score" calculation for the UI Card here
-        const enhancedApplicants = applicants.map(app => ({
-            ...app,
-            matchScore: 85 // You can call your match calculation utility here
-        }));
-
-        return res.status(200).json({
-            success: true,
-            message: "Applicants retrieved for review",
-            applicants: enhancedApplicants
-        });
-
+        const applicants = await Applicant.find({ jobId }).populate({
+            path: "seekerId",
+            populate: { path: "userId", select: "firstName lastName picture email" }
+        }).sort({ createdAt: -1 }).lean();
+        return res.status(200).json({ success: true, applicants });
     } catch (error) {
-        console.error("Get Applicants Error:", error);
-        return res.status(500).json({ success: false, message: "Internal Server Error" });
+        return res.status(500).json({ success: false });
     }
 };
 
+// 13. Similar Jobs
 const getSimilarJobs = async (req, res) => {
     try {
         const { jobId } = req.params;
         const job = await Job.findById(jobId);
-
-        if (!job) return res.status(404).json({ success: false, message: "Job not found" });
-
-        const similarJobs = await Job.find({
-            category: job.category,
-            _id: { $ne: jobId }, // Don't include the current job
-            status: "Active"
-        })
-        .limit(4)
-        .select("title location salaryRange jobType companyId")
-        .populate("companyId", "companyName companyLogo");
-
-        return res.status(200).json({
-            success: true,
-            jobs: similarJobs
-        });
+        if (!job) return res.status(404).json({ success: false });
+        const similarJobs = await Job.find({ category: job.category, _id: { $ne: jobId }, status: "Active" }).limit(4).populate("postedBy", "companyName companyLogo");
+        return res.status(200).json({ success: true, jobs: similarJobs });
     } catch (error) {
-        return res.status(500).json({ success: false, message: "Error fetching similar jobs" });
+        return res.status(500).json({ success: false });
     }
 };
 
+// 14. Toggle Status
 const toggleJobStatus = async (req, res) => {
     try {
         const { jobId } = req.params;
-        const { status } = req.body; // Expecting: 'Active', 'Paused', or 'Closed'
-
-        // 1. Validation
-        const validStatuses = ['Active', 'Paused', 'Closed'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: "Invalid status. Must be 'Active', 'Paused', or 'Closed'." 
-            });
-        }
-
-        // 2. Find and Update
-        // We use { runValidators: true } to ensure the new status matches our Schema enum
-        const updatedJob = await Job.findByIdAndUpdate(
-            jobId,
-            { $set: { status: status } },
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedJob) {
-            return res.status(404).json({ success: false, message: "Job not found" });
-        }
-
-        // 3. Logic for 'Closed' jobs
-        // If a job is closed, we might want to notify pending applicants 
-        // that the position is no longer accepting applications.
-        if (status === 'Closed') {
-            // Optional: You could trigger a bulk notification utility here
-            // notifyPendingApplicants(jobId);
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: `Job status successfully updated to ${status}`,
-            job: updatedJob
-        });
-
+        const { status } = req.body;
+        const updatedJob = await Job.findByIdAndUpdate(jobId, { $set: { status } }, { new: true });
+        return res.status(200).json({ success: true, job: updatedJob });
     } catch (error) {
-        console.error("Error in toggleJobStatus:", error);
-        return res.status(500).json({ success: false, message: "Internal Server Error" });
+        return res.status(500).json({ success: false });
     }
 };
 
-export {createJob,getAllJobs,getJobById,removeJob,getAllJobsByAuthorityId,applyForJob,saveJob,getSavedJobBySeekerId,getCustomizedJobs,getAllRequirements,updateApplicationStatus,getApplicantsByJob,getSimilarJobs,toggleJobStatus}
+// 15. Categories
+const getJobCategories = async (req, res) => {
+    try {
+        const categories = await Job.distinct("category");
+        return res.status(200).json({ success: true, categories });
+    } catch (error) {
+        return res.status(500).json({ success: false });
+    }
+};
+
+export { createJob, getAllJobs, getJobById, getJobCategories, removeJob, getAllJobsByAuthorityId, applyForJob, saveJob, getSavedJobBySeekerId, getCustomizedJobs, getAllRequirements, updateApplicationStatus, getApplicantsByJob, getSimilarJobs, toggleJobStatus };
